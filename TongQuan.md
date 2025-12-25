@@ -3,7 +3,7 @@
 **Nền tảng: ESP32-S3-WROOM-1-N16R8 (16MB Flash, 8MB PSRAM)**  
 **Môi trường phát triển: ESP-IDF v5.2.6**
 
-**Phiên bản: 1.3**  
+**Phiên bản: 1.0**  
 **Ngày lập: 25/12/2025**
 
 ---

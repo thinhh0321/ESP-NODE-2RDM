@@ -1,0 +1,26 @@
+# ESP-IDF build artifacts
+build/
+sdkconfig
+sdkconfig.old
+dependencies.lock
+managed_components/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*.swn
+
+# OS
+.DS_Store
+Thumbs.db
+*.bak
+
+# Test artifacts
+test_output/
+*.log
+
+# Temporary files
+*~
+*.tmp
