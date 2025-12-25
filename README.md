@@ -7,7 +7,14 @@
 
 ## 📚 Tài liệu dự án
 
-Dự án bao gồm tài liệu thiết kế chi tiết và quy chuẩn lập trình:
+Dự án bao gồm tài liệu thiết kế chi tiết, kế hoạch phát triển và quy chuẩn lập trình:
+
+### Kế hoạch phát triển
+- **[📋 DEVELOPMENT_SUMMARY.md](docs/DEVELOPMENT_SUMMARY.md)** - **ĐỌC ĐẦU TIÊN** - Tóm tắt tổng quan kế hoạch
+- **[📘 FIRMWARE_DEVELOPMENT_PLAN.md](docs/FIRMWARE_DEVELOPMENT_PLAN.md)** - Kế hoạch chi tiết, cấu trúc project, roadmap
+- **[🔧 LIBRARY_INTEGRATION_GUIDE.md](docs/LIBRARY_INTEGRATION_GUIDE.md)** - Hướng dẫn tích hợp thư viện
+- **[🗺️ IMPLEMENTATION_ROADMAP.md](docs/IMPLEMENTATION_ROADMAP.md)** - Lộ trình triển khai từng sprint
+- **[🔀 ALTERNATIVE_APPROACHES.md](docs/ALTERNATIVE_APPROACHES.md)** - So sánh phương án thay thế
 
 ### Tổng quan hệ thống
 - **[TongQuan.md](TongQuan.md)** - Tài liệu tổng quan toàn bộ hệ thống firmware
