@@ -71,9 +71,9 @@ void app_main(void)
     // Register network state callback
     network_register_state_callback(network_state_changed, NULL);
     
-    // Start network (auto-fallback will be implemented later)
-    ESP_LOGI(TAG, "Starting network...");
-    ESP_ERROR_CHECK(network_start());
+    // Start network with auto-fallback (asynchronous)
+    ESP_LOGI(TAG, "Starting network with auto-fallback...");
+    ESP_ERROR_CHECK(network_start_with_fallback());
     
     ESP_LOGI(TAG, "System initialized successfully");
     

@@ -105,6 +105,17 @@ esp_err_t network_init(void);
 esp_err_t network_start(void);
 
 /**
+ * @brief Start network with auto-fallback (asynchronous)
+ * 
+ * Creates a background task that implements the auto-fallback sequence.
+ * This function returns immediately; connection happens asynchronously.
+ * Use network_register_state_callback() to be notified of connection events.
+ * 
+ * @return ESP_OK if auto-fallback task created successfully
+ */
+esp_err_t network_start_with_fallback(void);
+
+/**
  * @brief Stop all network interfaces
  * 
  * @return ESP_OK on success
