@@ -32,7 +32,7 @@ typedef enum {
     PROTOCOL_MERGE_BOTH
 } protocol_mode_t;
 
-// WiFi profile
+// WiFi profile configuration storage format (different from network_manager's wifi_profile_t)
 typedef struct {
     char ssid[32];
     char password[64];
@@ -41,7 +41,7 @@ typedef struct {
     char static_ip[16];
     char gateway[16];
     char netmask[16];
-} wifi_profile_t;
+} config_wifi_profile_t;
 
 // Port configuration
 typedef struct {
@@ -62,7 +62,7 @@ typedef struct {
         char eth_static_ip[16];
         char eth_gateway[16];
         char eth_netmask[16];
-        wifi_profile_t wifi_profiles[5];
+        config_wifi_profile_t wifi_profiles[5];
         uint8_t wifi_profile_count;
         char ap_ssid[32];
         char ap_password[64];

@@ -13,6 +13,7 @@
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include <string.h>
 
 static const char *TAG = "network_fallback";
 
@@ -81,14 +82,15 @@ void network_auto_fallback_task(void *pvParameters)
         ESP_LOGI(TAG, "Starting WiFi (Ethernet unavailable)...");
         
         // Sort profiles by priority (bubble sort for simplicity)
-        wifi_profile_t profiles[5];
+        // Create temporary array to avoid modifying original config
+        config_wifi_profile_t profiles[5];
         memcpy(profiles, config->network.wifi_profiles, 
-               sizeof(wifi_profile_t) * config->network.wifi_profile_count);
+               sizeof(config_wifi_profile_t) * config->network.wifi_profile_count);
         
         for (int i = 0; i < config->network.wifi_profile_count - 1; i++) {
             for (int j = 0; j < config->network.wifi_profile_count - i - 1; j++) {
                 if (profiles[j].priority > profiles[j + 1].priority) {
-                    wifi_profile_t temp = profiles[j];
+                    config_wifi_profile_t temp = profiles[j];
                     profiles[j] = profiles[j + 1];
                     profiles[j + 1] = temp;
                 }
@@ -100,7 +102,20 @@ void network_auto_fallback_task(void *pvParameters)
             ESP_LOGI(TAG, "Trying WiFi profile: %s (priority %d)",
                     profiles[i].ssid, profiles[i].priority);
             
-            if (network_wifi_sta_connect(&profiles[i]) == ESP_OK) {
+            // Convert config_wifi_profile_t to network_manager's wifi_profile_t
+            wifi_profile_t nw_profile = {0};
+            strncpy(nw_profile.ssid, profiles[i].ssid, sizeof(nw_profile.ssid) - 1);
+            strncpy(nw_profile.password, profiles[i].password, sizeof(nw_profile.password) - 1);
+            nw_profile.priority = profiles[i].priority;
+            nw_profile.use_static_ip = profiles[i].use_static_ip;
+            
+            if (profiles[i].use_static_ip) {
+                strncpy(nw_profile.static_ip.ip, profiles[i].static_ip, sizeof(nw_profile.static_ip.ip) - 1);
+                strncpy(nw_profile.static_ip.gateway, profiles[i].gateway, sizeof(nw_profile.static_ip.gateway) - 1);
+                strncpy(nw_profile.static_ip.netmask, profiles[i].netmask, sizeof(nw_profile.static_ip.netmask) - 1);
+            }
+            
+            if (network_wifi_sta_connect(&nw_profile) == ESP_OK) {
                 // Wait for connection
                 vTaskDelay(pdMS_TO_TICKS(15000)); // 15 second timeout
                 

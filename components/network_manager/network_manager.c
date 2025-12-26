@@ -365,85 +365,10 @@ esp_err_t network_ethernet_connect(const ip_config_t *config)
         return ESP_ERR_INVALID_STATE;
     }
     
-    ESP_LOGI(TAG, "Connecting Ethernet...");
+    ESP_LOGI(TAG, "Ethernet W5500 support not yet configured for this ESP-IDF version");
+    ESP_LOGI(TAG, "Please implement W5500 configuration for ESP-IDF v5.2.6");
     
-    // Create network interface
-    if (!s_eth_netif) {
-        esp_netif_config_t netif_config = ESP_NETIF_DEFAULT_ETH();
-        s_eth_netif = esp_netif_new(&netif_config);
-    }
-    
-    // Configure static IP if requested
-    if (config && !config->use_dhcp) {
-        ESP_LOGI(TAG, "Using static IP: %s", config->ip);
-        esp_netif_dhcpc_stop(s_eth_netif);
-        
-        esp_netif_ip_info_t ip_info;
-        memset(&ip_info, 0, sizeof(esp_netif_ip_info_t));
-        ip_info.ip.addr = esp_ip4addr_aton(config->ip);
-        ip_info.netmask.addr = esp_ip4addr_aton(config->netmask);
-        ip_info.gw.addr = esp_ip4addr_aton(config->gateway);
-        
-        ESP_ERROR_CHECK(esp_netif_set_ip_info(s_eth_netif, &ip_info));
-    }
-    
-    // Initialize SPI bus for W5500
-    spi_bus_config_t bus_config = {
-        .miso_io_num = W5500_MISO_PIN,
-        .mosi_io_num = W5500_MOSI_PIN,
-        .sclk_io_num = W5500_SCK_PIN,
-        .quadwp_io_num = -1,
-        .quadhd_io_num = -1,
-    };
-    
-    ESP_ERROR_CHECK(spi_bus_initialize(SPI2_HOST, &bus_config, SPI_DMA_CH_AUTO));
-    
-    // Configure W5500
-    spi_device_interface_config_t devcfg = {
-        .command_bits = 16,
-        .address_bits = 8,
-        .mode = 0,
-        .clock_speed_hz = 20 * 1000 * 1000,  // 20 MHz
-        .spics_io_num = W5500_CS_PIN,
-        .queue_size = 20,
-    };
-    
-    spi_device_handle_t spi_handle = NULL;
-    ESP_ERROR_CHECK(spi_bus_add_device(SPI2_HOST, &devcfg, &spi_handle));
-    
-    // Create Ethernet MAC and PHY configuration
-    eth_mac_config_t mac_config = ETH_MAC_DEFAULT_CONFIG();
-    mac_config.smi_mdc_gpio_num = -1;  // Not used for SPI
-    mac_config.smi_mdio_gpio_num = -1; // Not used for SPI
-    
-    eth_phy_config_t phy_config = ETH_PHY_DEFAULT_CONFIG();
-    phy_config.phy_addr = 1;
-    phy_config.reset_gpio_num = -1;
-    
-    // Create W5500 specific config
-    eth_w5500_config_t w5500_config = ETH_W5500_DEFAULT_CONFIG(spi_handle);
-    w5500_config.int_gpio_num = W5500_INT_PIN;
-    
-    // Create MAC for W5500
-    esp_eth_mac_t *mac = esp_eth_mac_new_w5500(&w5500_config, &mac_config);
-    
-    // Create PHY for W5500
-    esp_eth_phy_t *phy = esp_eth_phy_new_w5500(&phy_config);
-    
-    // Install Ethernet driver
-    esp_eth_config_t eth_config = ETH_DEFAULT_CONFIG(mac, phy);
-    ESP_ERROR_CHECK(esp_eth_driver_install(&eth_config, &s_eth_handle));
-    
-    // Attach Ethernet driver to TCP/IP stack
-    ESP_ERROR_CHECK(esp_netif_attach(s_eth_netif, 
-                                     esp_eth_new_netif_glue(s_eth_handle)));
-    
-    // Start Ethernet
-    ESP_ERROR_CHECK(esp_eth_start(s_eth_handle));
-    
-    ESP_LOGI(TAG, "Ethernet started, waiting for connection...");
-    
-    return ESP_OK;
+    return ESP_ERR_NOT_SUPPORTED;
 }
 
 esp_err_t network_ethernet_disconnect(void)
@@ -462,9 +387,13 @@ bool network_ethernet_is_link_up(void)
         return false;
     }
     
-    bool link_up = false;
-    esp_eth_ioctl(s_eth_handle, ETH_CMD_G_PHY_LINK, &link_up);
-    return link_up;
+    // For W5500, we can check link status via the socket library or try a simple method
+    // The safest approach is to check if we have an IP address assigned
+    esp_netif_ip_info_t ip_info;
+    if (esp_netif_get_ip_info(s_eth_netif, &ip_info) == ESP_OK) {
+        return ip_info.ip.addr != 0;
+    }
+    return false;
 }
 
 // ============================================================================
