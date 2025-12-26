@@ -8,6 +8,8 @@
 #include "led_manager.h"
 #include "network_manager.h"
 #include "dmx_handler.h"
+#include "artnet_receiver.h"
+#include "sacn_receiver.h"
 
 static const char *TAG = "main";
 
@@ -47,6 +49,51 @@ static void network_state_changed(network_state_t state, void *user_data)
         default:
             led_manager_set_state(LED_STATE_BOOT);
             break;
+    }
+}
+
+// Art-Net DMX data callback
+static void on_artnet_dmx(uint16_t universe, const uint8_t *data, 
+                          uint16_t length, uint8_t sequence, void *user_data)
+{
+    ESP_LOGD(TAG, "Art-Net DMX received: Universe=%d, Length=%d, Seq=%d",
+             universe, length, sequence);
+    
+    // Route to appropriate DMX port based on universe
+    config_t *config = config_get();
+    
+    if (config->port1.universe_primary == universe) {
+        dmx_handler_send_dmx(DMX_PORT_1, data);
+    }
+    
+    if (config->port2.universe_primary == universe) {
+        dmx_handler_send_dmx(DMX_PORT_2, data);
+    }
+}
+
+// sACN DMX data callback
+static void on_sacn_dmx(uint16_t universe, const uint8_t *data,
+                        uint8_t priority, uint8_t sequence,
+                        bool preview, const char *source_name,
+                        void *user_data)
+{
+    ESP_LOGD(TAG, "sACN DMX received: Universe=%d, Priority=%d, Seq=%d, Preview=%d, Source=%s",
+             universe, priority, sequence, preview, source_name);
+    
+    // Skip preview data
+    if (preview) {
+        return;
+    }
+    
+    // Route to appropriate DMX port based on universe
+    config_t *config = config_get();
+    
+    if (config->port1.universe_primary == universe) {
+        dmx_handler_send_dmx(DMX_PORT_1, data);
+    }
+    
+    if (config->port2.universe_primary == universe) {
+        dmx_handler_send_dmx(DMX_PORT_2, data);
     }
 }
 
@@ -108,6 +155,31 @@ void app_main(void)
         ESP_ERROR_CHECK(dmx_handler_start_port(DMX_PORT_2));
     }
     
+    // Initialize Protocol Receivers
+    ESP_LOGI(TAG, "Initializing protocol receivers...");
+    
+    // Art-Net Receiver
+    ESP_LOGI(TAG, "Initializing Art-Net receiver...");
+    ESP_ERROR_CHECK(artnet_receiver_init());
+    ESP_ERROR_CHECK(artnet_receiver_set_callback(on_artnet_dmx, NULL));
+    ESP_ERROR_CHECK(artnet_receiver_start());
+    
+    // sACN Receiver
+    ESP_LOGI(TAG, "Initializing sACN receiver...");
+    ESP_ERROR_CHECK(sacn_receiver_init());
+    ESP_ERROR_CHECK(sacn_receiver_set_callback(on_sacn_dmx, NULL));
+    ESP_ERROR_CHECK(sacn_receiver_start());
+    
+    // Subscribe to universes for sACN
+    ESP_LOGI(TAG, "Subscribing to sACN universes...");
+    if (config->port1.universe_primary > 0) {
+        ESP_ERROR_CHECK(sacn_receiver_subscribe_universe(config->port1.universe_primary));
+    }
+    if (config->port2.universe_primary > 0 && 
+        config->port2.universe_primary != config->port1.universe_primary) {
+        ESP_ERROR_CHECK(sacn_receiver_subscribe_universe(config->port2.universe_primary));
+    }
+    
     ESP_LOGI(TAG, "System initialized successfully");
     
     // Main loop
@@ -134,6 +206,20 @@ void app_main(void)
         if (dmx_handler_get_port_status(DMX_PORT_2, &dmx_status_port2) == ESP_OK && dmx_status_port2.is_active) {
             ESP_LOGI(TAG, "DMX Port 2 - Mode: %d, Frames sent: %lu, Frames received: %lu",
                      dmx_status_port2.mode, dmx_status_port2.stats.frames_sent, dmx_status_port2.stats.frames_received);
+        }
+        
+        // Get protocol receiver statistics
+        artnet_stats_t artnet_stats;
+        if (artnet_receiver_get_stats(&artnet_stats) == ESP_OK) {
+            ESP_LOGI(TAG, "Art-Net - Packets: %lu, DMX: %lu, Poll: %lu",
+                     artnet_stats.packets_received, artnet_stats.dmx_packets, artnet_stats.poll_packets);
+        }
+        
+        sacn_stats_t sacn_stats;
+        if (sacn_receiver_get_stats(&sacn_stats) == ESP_OK) {
+            ESP_LOGI(TAG, "sACN - Packets: %lu, Data: %lu, Subscriptions: %d",
+                     sacn_stats.packets_received, sacn_stats.data_packets, 
+                     sacn_receiver_get_subscription_count());
         }
         
         vTaskDelay(pdMS_TO_TICKS(10000)); // Log every 10 seconds
