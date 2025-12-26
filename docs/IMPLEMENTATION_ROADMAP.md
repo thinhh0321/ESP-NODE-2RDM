@@ -1,4 +1,5 @@
 # LỘ TRÌNH TRIỂN KHAI FIRMWARE
+
 **Dự án: ESP-NODE-2RDM**
 
 **Phiên bản:** 1.0  
@@ -7,6 +8,7 @@
 ---
 
 ## MỤC LỤC
+
 1. [Tổng quan](#1-tổng-quan)
 2. [Sprint 0: Project Setup](#sprint-0-project-setup)
 3. [Sprint 1: Storage & Configuration](#sprint-1-storage--configuration)
@@ -31,22 +33,23 @@
 
 ### 1.2. Mục tiêu từng phase
 
-| Phase | Module | Deliverable |
-|-------|--------|-------------|
-| 0 | Setup | ESP-IDF project structure, build system |
-| 1 | Storage | LittleFS + Config management |
-| 2 | LED | WS2812 status indicator |
-| 3-4 | Network | Ethernet + WiFi với fallback |
-| 5-6 | DMX/RDM | 2 cổng DMX512/RDM functional |
-| 7-8 | Protocols | Art-Net + sACN receivers |
-| 9-10 | Merge | Data merging với HTP/LTP/etc |
-| 11-12 | Web | HTTP + WebSocket interface |
-| 13 | Integration | Full system integration |
-| 14-15 | Testing | Performance tuning + stability |
+| Phase | Module      | Deliverable                             |
+| ----- | ----------- | --------------------------------------- |
+| 0     | Setup       | ESP-IDF project structure, build system |
+| 1     | Storage     | LittleFS + Config management            |
+| 2     | LED         | WS2812 status indicator                 |
+| 3-4   | Network     | Ethernet + WiFi với fallback            |
+| 5-6   | DMX/RDM     | 2 cổng DMX512/RDM functional            |
+| 7-8   | Protocols   | Art-Net + sACN receivers                |
+| 9-10  | Merge       | Data merging với HTP/LTP/etc            |
+| 11-12 | Web         | HTTP + WebSocket interface              |
+| 13    | Integration | Full system integration                 |
+| 14-15 | Testing     | Performance tuning + stability          |
 
 ### 1.3. Success Criteria
 
 Sau mỗi sprint:
+
 - ✅ Code builds without warnings
 - ✅ Module tests passed
 - ✅ Documentation updated
@@ -57,11 +60,13 @@ Sau mỗi sprint:
 ## SPRINT 0: PROJECT SETUP
 
 ### Mục tiêu
+
 Tạo cấu trúc project ESP-IDF hoàn chỉnh, có thể build thành công.
 
 ### Công việc chi tiết
 
 #### Task 0.1: Create ESP-IDF Project
+
 ```bash
 # Navigate to workspace
 cd /path/to/workspace
@@ -72,6 +77,7 @@ cd esp-node-2rdm
 ```
 
 #### Task 0.2: Setup Directory Structure
+
 ```bash
 mkdir -p components/{config_manager,network_manager,led_manager,dmx_handler}
 mkdir -p components/{merge_engine,artnet_receiver,sacn_receiver,web_server,storage_manager}
@@ -83,6 +89,7 @@ mkdir -p tools/test_scripts
 #### Task 0.3: Create Partition Table
 
 **Tạo `partitions.csv`:**
+
 ```csv
 # Name,     Type, SubType,  Offset,   Size,     Flags
 nvs,        data, nvs,      0x9000,   0x4000,
@@ -95,6 +102,7 @@ littlefs,   data, spiffs,   0x210000, 0x100000,
 #### Task 0.4: Configure sdkconfig.defaults
 
 **Tạo `sdkconfig.defaults`:**
+
 ```ini
 # Target
 CONFIG_IDF_TARGET="esp32s3"
@@ -155,6 +163,7 @@ CONFIG_COMPILER_OPTIMIZATION_ASSERTIONS_DISABLE=n
 #### Task 0.5: Setup Root CMakeLists.txt
 
 **Tạo `CMakeLists.txt`:**
+
 ```cmake
 # Minimum CMake version
 cmake_minimum_required(VERSION 3.16)
@@ -174,6 +183,7 @@ project(esp-node-2rdm)
 #### Task 0.6: Create Main Component
 
 **Tạo `main/CMakeLists.txt`:**
+
 ```cmake
 idf_component_register(
     SRCS "main.c"
@@ -182,6 +192,7 @@ idf_component_register(
 ```
 
 **Tạo `main/main.c`:**
+
 ```c
 #include <stdio.h>
 #include "freertos/FreeRTOS.h"
@@ -195,7 +206,7 @@ void app_main(void)
 {
     ESP_LOGI(TAG, "ESP-NODE-2RDM Firmware v0.1.0");
     ESP_LOGI(TAG, "ESP-IDF Version: %s", esp_get_idf_version());
-    
+
     // Initialize NVS
     esp_err_t ret = nvs_flash_init();
     if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
@@ -203,9 +214,9 @@ void app_main(void)
         ret = nvs_flash_init();
     }
     ESP_ERROR_CHECK(ret);
-    
+
     ESP_LOGI(TAG, "System initialized successfully");
-    
+
     while (1) {
         vTaskDelay(pdMS_TO_TICKS(1000));
     }
@@ -215,6 +226,7 @@ void app_main(void)
 #### Task 0.7: Setup .gitignore
 
 **Tạo `.gitignore`:**
+
 ```gitignore
 # ESP-IDF build artifacts
 build/
@@ -257,6 +269,7 @@ idf.py build
 ```
 
 ### Deliverables
+
 - [ ] Project structure created
 - [ ] Partition table defined
 - [ ] sdkconfig.defaults configured
@@ -265,6 +278,7 @@ idf.py build
 - [ ] .gitignore configured
 
 ### Testing
+
 ```bash
 # Clean build
 idf.py fullclean
@@ -279,6 +293,7 @@ idf.py build
 ## SPRINT 1: STORAGE & CONFIGURATION
 
 ### Mục tiêu
+
 Triển khai LittleFS storage và configuration management với JSON.
 
 ### Công việc chi tiết
@@ -293,6 +308,7 @@ git clone https://github.com/joltwallet/esp_littlefs.git esp_littlefs
 #### Task 1.2: Create Storage Manager
 
 **File: `components/storage_manager/CMakeLists.txt`:**
+
 ```cmake
 idf_component_register(
     SRCS "storage_manager.c"
@@ -302,6 +318,7 @@ idf_component_register(
 ```
 
 **File: `components/storage_manager/include/storage_manager.h`:**
+
 ```c
 #ifndef STORAGE_MANAGER_H
 #define STORAGE_MANAGER_H
@@ -360,6 +377,7 @@ esp_err_t storage_delete_file(const char *path);
 ```
 
 **File: `components/storage_manager/storage_manager.c`:**
+
 ```c
 #include "storage_manager.h"
 #include "esp_littlefs.h"
@@ -377,26 +395,26 @@ esp_err_t storage_init(void)
         ESP_LOGW(TAG, "Already initialized");
         return ESP_OK;
     }
-    
+
     esp_vfs_littlefs_conf_t conf = {
         .base_path = STORAGE_BASE_PATH,
         .partition_label = "littlefs",
         .format_if_mount_failed = true,
         .dont_mount = false,
     };
-    
+
     esp_err_t ret = esp_vfs_littlefs_register(&conf);
     if (ret != ESP_OK) {
         ESP_LOGE(TAG, "Failed to mount LittleFS: %s", esp_err_to_name(ret));
         return ret;
     }
-    
+
     size_t total = 0, used = 0;
     ret = esp_littlefs_info("littlefs", &total, &used);
     if (ret == ESP_OK) {
         ESP_LOGI(TAG, "LittleFS: total=%d KB, used=%d KB", total/1024, used/1024);
     }
-    
+
     initialized = true;
     return ESP_OK;
 }
@@ -404,7 +422,7 @@ esp_err_t storage_init(void)
 esp_err_t storage_deinit(void)
 {
     if (!initialized) return ESP_OK;
-    
+
     esp_err_t ret = esp_vfs_littlefs_unregister("littlefs");
     initialized = false;
     return ret;
@@ -414,17 +432,17 @@ esp_err_t storage_read_file(const char *path, char *buffer, size_t *size)
 {
     char full_path[128];
     snprintf(full_path, sizeof(full_path), "%s/%s", STORAGE_BASE_PATH, path);
-    
+
     FILE *f = fopen(full_path, "r");
     if (!f) {
         ESP_LOGE(TAG, "Failed to open file: %s", full_path);
         return ESP_FAIL;
     }
-    
+
     size_t read_size = fread(buffer, 1, *size - 1, f);
     buffer[read_size] = '\0';
     *size = read_size;
-    
+
     fclose(f);
     ESP_LOGI(TAG, "Read %d bytes from %s", read_size, path);
     return ESP_OK;
@@ -434,21 +452,21 @@ esp_err_t storage_write_file(const char *path, const char *data, size_t size)
 {
     char full_path[128];
     snprintf(full_path, sizeof(full_path), "%s/%s", STORAGE_BASE_PATH, path);
-    
+
     FILE *f = fopen(full_path, "w");
     if (!f) {
         ESP_LOGE(TAG, "Failed to create file: %s", full_path);
         return ESP_FAIL;
     }
-    
+
     size_t written = fwrite(data, 1, size, f);
     fclose(f);
-    
+
     if (written != size) {
         ESP_LOGE(TAG, "Write size mismatch: %d != %d", written, size);
         return ESP_FAIL;
     }
-    
+
     ESP_LOGI(TAG, "Wrote %d bytes to %s", written, path);
     return ESP_OK;
 }
@@ -457,7 +475,7 @@ bool storage_file_exists(const char *path)
 {
     char full_path[128];
     snprintf(full_path, sizeof(full_path), "%s/%s", STORAGE_BASE_PATH, path);
-    
+
     struct stat st;
     return (stat(full_path, &st) == 0);
 }
@@ -466,12 +484,12 @@ esp_err_t storage_delete_file(const char *path)
 {
     char full_path[128];
     snprintf(full_path, sizeof(full_path), "%s/%s", STORAGE_BASE_PATH, path);
-    
+
     if (unlink(full_path) == 0) {
         ESP_LOGI(TAG, "Deleted file: %s", path);
         return ESP_OK;
     }
-    
+
     ESP_LOGE(TAG, "Failed to delete: %s", path);
     return ESP_FAIL;
 }
@@ -480,6 +498,7 @@ esp_err_t storage_delete_file(const char *path)
 #### Task 1.3: Create Configuration Manager
 
 **File: `components/config_manager/CMakeLists.txt`:**
+
 ```cmake
 idf_component_register(
     SRCS "config_manager.c"
@@ -489,6 +508,7 @@ idf_component_register(
 ```
 
 **File: `components/config_manager/include/config_manager.h`:**
+
 ```c
 #ifndef CONFIG_MANAGER_H
 #define CONFIG_MANAGER_H
@@ -560,14 +580,14 @@ typedef struct {
         char ap_password[64];
         uint8_t ap_channel;
     } network;
-    
+
     port_config_t port1;
     port_config_t port2;
-    
+
     struct {
         uint8_t timeout_seconds;
     } merge;
-    
+
     struct {
         char short_name[18];
         char long_name[64];
@@ -633,20 +653,21 @@ See implementation in FIRMWARE_DEVELOPMENT_PLAN.md Phase 1.
 void app_main(void)
 {
     // ... NVS init ...
-    
+
     // Initialize storage
     ESP_ERROR_CHECK(storage_init());
-    
+
     // Initialize and load config
     ESP_ERROR_CHECK(config_init());
     ESP_ERROR_CHECK(config_load());
-    
+
     config_t *config = config_get();
     ESP_LOGI(TAG, "Node: %s", config->node_info.short_name);
 }
 ```
 
 ### Deliverables
+
 - [ ] LittleFS integrated và mounted
 - [ ] Storage manager API functional
 - [ ] Config manager với full JSON support
@@ -654,12 +675,13 @@ void app_main(void)
 - [ ] Save/load persistence verified
 
 ### Testing
+
 ```bash
 # Build
 idf.py build
 
 # Flash and monitor
-idf.py -p /dev/ttyUSB0 flash monitor
+idf.py -p COM3 flash monitor
 
 # Expected output:
 # - LittleFS mounted
@@ -677,6 +699,7 @@ idf.py -p /dev/ttyUSB0 flash monitor
 ## SPRINT 2: LED MANAGER
 
 ### Mục tiêu
+
 Triển khai WS2812 LED status indicator.
 
 ### Công việc chi tiết
@@ -684,6 +707,7 @@ Triển khai WS2812 LED status indicator.
 #### Task 2.1: Create LED Manager Component
 
 **File: `components/led_manager/CMakeLists.txt`:**
+
 ```cmake
 idf_component_register(
     SRCS "led_manager.c"
@@ -693,6 +717,7 @@ idf_component_register(
 ```
 
 **File: `components/led_manager/include/led_manager.h`:**
+
 ```c
 #ifndef LED_MANAGER_H
 #define LED_MANAGER_H
@@ -720,12 +745,14 @@ esp_err_t led_manager_pulse(void); // Quick flash for packet receive
 **Implementation:** See FIRMWARE_DEVELOPMENT_PLAN.md Phase 2.
 
 ### Deliverables
+
 - [ ] WS2812 LED functional
 - [ ] All states implemented
 - [ ] Smooth transitions
 - [ ] Non-blocking operation
 
 ### Testing
+
 ```bash
 # Test all LED states sequentially
 # Verify colors với eyes or multimeter
@@ -737,6 +764,7 @@ esp_err_t led_manager_pulse(void); // Quick flash for packet receive
 ## SPRINT 3-4: NETWORK MANAGER
 
 ### Mục tiêu
+
 Triển khai Ethernet W5500 và WiFi với auto-fallback.
 
 ### Công việc chi tiết
@@ -744,6 +772,7 @@ Triển khai Ethernet W5500 và WiFi với auto-fallback.
 See FIRMWARE_DEVELOPMENT_PLAN.md Phase 3 for detailed implementation.
 
 ### Deliverables
+
 - [ ] W5500 Ethernet driver working
 - [ ] WiFi STA mode functional
 - [ ] WiFi AP mode functional
@@ -751,6 +780,7 @@ See FIRMWARE_DEVELOPMENT_PLAN.md Phase 3 for detailed implementation.
 - [ ] IP configuration (DHCP + static)
 
 ### Testing
+
 - Test Ethernet connection
 - Test WiFi STA with multiple profiles
 - Test WiFi AP fallback
@@ -762,20 +792,24 @@ See FIRMWARE_DEVELOPMENT_PLAN.md Phase 3 for detailed implementation.
 ## SPRINT 5-6: DMX/RDM HANDLER
 
 ### Mục tiêu
+
 Triển khai 2 cổng DMX512/RDM độc lập.
 
 ### Công việc chi tiết
 
 #### Task 5.1: Add esp-dmx Library
+
 ```bash
 cd external_components
 git clone https://github.com/someweisguy/esp-dmx.git esp-dmx
 ```
 
 #### Task 5.2: Implement DMX Handler
+
 See FIRMWARE_DEVELOPMENT_PLAN.md Phase 4 for detailed API.
 
 ### Deliverables
+
 - [ ] Port 1 DMX output @ 44Hz
 - [ ] Port 2 DMX output @ 44Hz
 - [ ] RDM discovery functional
@@ -783,6 +817,7 @@ See FIRMWARE_DEVELOPMENT_PLAN.md Phase 4 for detailed API.
 - [ ] DMX input monitoring
 
 ### Testing
+
 - DMX output với DMX tester/oscilloscope
 - RDM discovery với real devices
 - Timing verification
@@ -793,23 +828,28 @@ See FIRMWARE_DEVELOPMENT_PLAN.md Phase 4 for detailed API.
 ## SPRINT 7-8: PROTOCOL RECEIVERS
 
 ### Mục tiêu
+
 Triển khai Art-Net và sACN receivers.
 
 ### Công việc chi tiết
 
 #### Task 7.1: Implement Art-Net Receiver
+
 See LIBRARY_INTEGRATION_GUIDE.md Section 5.
 
 #### Task 7.2: Add libe131
+
 ```bash
 cd external_components
 git clone https://github.com/hhromic/libe131.git libe131
 ```
 
 #### Task 7.3: Implement sACN Receiver
+
 See LIBRARY_INTEGRATION_GUIDE.md Section 4.
 
 ### Deliverables
+
 - [ ] Art-Net receiver functional
 - [ ] sACN receiver functional
 - [ ] Universe routing correct
@@ -817,6 +857,7 @@ See LIBRARY_INTEGRATION_GUIDE.md Section 4.
 - [ ] Multicast join/leave
 
 ### Testing
+
 - Send Art-Net from QLC+
 - Send sACN from software
 - Verify universe mapping
@@ -828,12 +869,15 @@ See LIBRARY_INTEGRATION_GUIDE.md Section 4.
 ## SPRINT 9-10: MERGE ENGINE
 
 ### Mục tiêu
+
 Triển khai merge logic cho multi-source.
 
 ### Công việc chi tiết
+
 See FIRMWARE_DEVELOPMENT_PLAN.md Phase 6.
 
 ### Deliverables
+
 - [ ] HTP mode working
 - [ ] LTP mode working
 - [ ] LAST mode working
@@ -842,6 +886,7 @@ See FIRMWARE_DEVELOPMENT_PLAN.md Phase 6.
 - [ ] Performance < 5ms
 
 ### Testing
+
 - Test HTP với 2 sources
 - Test backup failover
 - Timeout verification
@@ -852,12 +897,15 @@ See FIRMWARE_DEVELOPMENT_PLAN.md Phase 6.
 ## SPRINT 11-12: WEB SERVER
 
 ### Mục tiêu
+
 Triển khai HTTP API và WebSocket interface.
 
 ### Công việc chi tiết
+
 See FIRMWARE_DEVELOPMENT_PLAN.md Phase 7.
 
 ### Deliverables
+
 - [ ] HTTP server running
 - [ ] All REST endpoints functional
 - [ ] WebSocket working
@@ -865,6 +913,7 @@ See FIRMWARE_DEVELOPMENT_PLAN.md Phase 7.
 - [ ] Real-time DMX monitoring
 
 ### Testing
+
 - Load web page in browser
 - Test all API endpoints
 - WebSocket connection
@@ -876,18 +925,22 @@ See FIRMWARE_DEVELOPMENT_PLAN.md Phase 7.
 ## SPRINT 13: INTEGRATION
 
 ### Mục tiêu
+
 Tích hợp tất cả modules thành firmware hoàn chỉnh.
 
 ### Công việc chi tiết
+
 See FIRMWARE_DEVELOPMENT_PLAN.md Phase 8.
 
 ### Deliverables
+
 - [ ] All modules integrated
 - [ ] Task allocation optimized
 - [ ] End-to-end data flow working
 - [ ] Error handling complete
 
 ### Testing
+
 - Full integration test
 - Art-Net → Merge → DMX
 - sACN → Merge → DMX
@@ -899,35 +952,41 @@ See FIRMWARE_DEVELOPMENT_PLAN.md Phase 8.
 ## SPRINT 14-15: TESTING & OPTIMIZATION
 
 ### Mục tiêu
+
 Performance tuning, stability testing, documentation.
 
 ### Công việc chi tiết
 
 #### Task 14.1: Performance Testing
+
 - DMX refresh rate target: 40-44 Hz
 - Merge processing: < 5ms
 - Web response: < 200ms
 - Packet loss: < 0.1%
 
 #### Task 14.2: Stability Testing
+
 - 24-hour continuous operation
 - Memory leak detection
 - Network reconnection
 - Power cycle recovery
 
 #### Task 14.3: Edge Case Testing
+
 - Rapid config changes
 - Network loss/recovery
 - Multiple simultaneous sources
 - RDM device hotplug
 
 #### Task 14.4: Documentation
+
 - Update API documentation
 - Create user manual
 - Hardware setup guide
 - Troubleshooting guide
 
 ### Deliverables
+
 - [ ] Performance targets met
 - [ ] 24h stability passed
 - [ ] All edge cases handled
@@ -939,6 +998,7 @@ Performance tuning, stability testing, documentation.
 ## PHỤ LỤC: TESTING CHECKLIST
 
 ### Per-Sprint Testing
+
 - [ ] Code compiles without warnings
 - [ ] Module unit tests pass
 - [ ] No memory leaks detected
@@ -946,6 +1006,7 @@ Performance tuning, stability testing, documentation.
 - [ ] Documentation updated
 
 ### Integration Testing
+
 - [ ] All modules work together
 - [ ] Error handling correct
 - [ ] State transitions smooth
@@ -953,6 +1014,7 @@ Performance tuning, stability testing, documentation.
 - [ ] Config persistence
 
 ### Final Testing
+
 - [ ] Full functional test
 - [ ] Performance profiling
 - [ ] Stability test (24h+)

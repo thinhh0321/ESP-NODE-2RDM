@@ -3,6 +3,8 @@
 #include "freertos/task.h"
 #include "esp_log.h"
 #include "nvs_flash.h"
+#include "storage_manager.h"
+#include "config_manager.h"
 
 static const char *TAG = "main";
 
@@ -18,6 +20,16 @@ void app_main(void)
         ret = nvs_flash_init();
     }
     ESP_ERROR_CHECK(ret);
+    
+    // Initialize storage
+    ESP_ERROR_CHECK(storage_init());
+    
+    // Initialize and load config
+    ESP_ERROR_CHECK(config_init());
+    ESP_ERROR_CHECK(config_load());
+    
+    config_t *config = config_get();
+    ESP_LOGI(TAG, "Node: %s", config->node_info.short_name);
     
     ESP_LOGI(TAG, "System initialized successfully");
     
