@@ -10,6 +10,8 @@
 #include "dmx_handler.h"
 #include "artnet_receiver.h"
 #include "sacn_receiver.h"
+#include "merge_engine.h"
+#include "lwip/ip_addr.h"
 
 static const char *TAG = "main";
 
@@ -59,15 +61,18 @@ static void on_artnet_dmx(uint16_t universe, const uint8_t *data,
     ESP_LOGD(TAG, "Art-Net DMX received: Universe=%d, Length=%d, Seq=%d",
              universe, length, sequence);
     
+    // Get source IP (would need to be passed from receiver in real implementation)
+    uint32_t source_ip = 0;  // Placeholder - should be extracted from packet
+    
     // Route to appropriate DMX port based on universe
     config_t *config = config_get();
     
     if (config->port1.universe_primary == universe) {
-        dmx_handler_send_dmx(DMX_PORT_1, data);
+        merge_engine_push_artnet(1, universe, data, sequence, source_ip);
     }
     
     if (config->port2.universe_primary == universe) {
-        dmx_handler_send_dmx(DMX_PORT_2, data);
+        merge_engine_push_artnet(2, universe, data, sequence, source_ip);
     }
 }
 
@@ -85,15 +90,41 @@ static void on_sacn_dmx(uint16_t universe, const uint8_t *data,
         return;
     }
     
+    // Get source IP (would need to be passed from receiver in real implementation)
+    uint32_t source_ip = 0;  // Placeholder
+    
     // Route to appropriate DMX port based on universe
     config_t *config = config_get();
     
     if (config->port1.universe_primary == universe) {
-        dmx_handler_send_dmx(DMX_PORT_1, data);
+        merge_engine_push_sacn(1, universe, data, sequence, priority, source_name, source_ip);
     }
     
     if (config->port2.universe_primary == universe) {
-        dmx_handler_send_dmx(DMX_PORT_2, data);
+        merge_engine_push_sacn(2, universe, data, sequence, priority, source_name, source_ip);
+    }
+}
+
+// DMX output task - pulls merged data and sends to DMX ports
+static void dmx_output_task(void *arg)
+{
+    uint8_t merged_data[512];
+    
+    ESP_LOGI(TAG, "DMX output task started");
+    
+    while (1) {
+        // Port 1
+        if (merge_engine_get_output(1, merged_data) == ESP_OK) {
+            dmx_handler_send_dmx(DMX_PORT_1, merged_data);
+        }
+        
+        // Port 2
+        if (merge_engine_get_output(2, merged_data) == ESP_OK) {
+            dmx_handler_send_dmx(DMX_PORT_2, merged_data);
+        }
+        
+        // Run at ~44Hz to match DMX output rate
+        vTaskDelay(pdMS_TO_TICKS(23));
     }
 }
 
@@ -155,6 +186,15 @@ void app_main(void)
         ESP_ERROR_CHECK(dmx_handler_start_port(DMX_PORT_2));
     }
     
+    // Initialize Merge Engine
+    ESP_LOGI(TAG, "Initializing merge engine...");
+    ESP_ERROR_CHECK(merge_engine_init());
+    
+    // Configure merge engine for both ports
+    ESP_LOGI(TAG, "Configuring merge engine...");
+    ESP_ERROR_CHECK(merge_engine_config(1, config->port1.merge_mode, config->merge.timeout_seconds * 1000));
+    ESP_ERROR_CHECK(merge_engine_config(2, config->port2.merge_mode, config->merge.timeout_seconds * 1000));
+    
     // Initialize Protocol Receivers
     ESP_LOGI(TAG, "Initializing protocol receivers...");
     
@@ -179,6 +219,18 @@ void app_main(void)
         config->port2.universe_primary != config->port1.universe_primary) {
         ESP_ERROR_CHECK(sacn_receiver_subscribe_universe(config->port2.universe_primary));
     }
+    
+    // Start DMX output task (pulls merged data and sends to ports)
+    ESP_LOGI(TAG, "Starting DMX output task...");
+    xTaskCreatePinnedToCore(
+        dmx_output_task,
+        "dmx_out_merge",
+        4096,
+        NULL,
+        10,
+        NULL,
+        1  // Run on Core 1 with DMX tasks
+    );
     
     ESP_LOGI(TAG, "System initialized successfully");
     
@@ -220,6 +272,20 @@ void app_main(void)
             ESP_LOGI(TAG, "sACN - Packets: %lu, Data: %lu, Subscriptions: %d",
                      sacn_stats.packets_received, sacn_stats.data_packets, 
                      sacn_receiver_get_subscription_count());
+        }
+        
+        // Get merge engine statistics
+        merge_stats_t merge_stats_1, merge_stats_2;
+        if (merge_engine_get_stats(1, &merge_stats_1) == ESP_OK) {
+            ESP_LOGI(TAG, "Merge Port 1 - Active sources: %lu, Total merges: %lu, HTP: %lu, LTP: %lu, LAST: %lu",
+                     merge_stats_1.active_sources, merge_stats_1.total_merges, 
+                     merge_stats_1.htp_merges, merge_stats_1.ltp_merges, merge_stats_1.last_merges);
+        }
+        
+        if (merge_engine_get_stats(2, &merge_stats_2) == ESP_OK) {
+            ESP_LOGI(TAG, "Merge Port 2 - Active sources: %lu, Total merges: %lu, HTP: %lu, LTP: %lu, LAST: %lu",
+                     merge_stats_2.active_sources, merge_stats_2.total_merges,
+                     merge_stats_2.htp_merges, merge_stats_2.ltp_merges, merge_stats_2.last_merges);
         }
         
         vTaskDelay(pdMS_TO_TICKS(10000)); // Log every 10 seconds
