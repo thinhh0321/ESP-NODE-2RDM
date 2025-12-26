@@ -74,9 +74,11 @@ void network_auto_fallback_task(void *pvParameters)
         }
     }
     
-    // Step 2: Try WiFi Station profiles
+    // Step 2: Try WiFi Station profiles (Priority 2: Only if Ethernet failed)
+    // WiFi is only started when Ethernet is unavailable to free RF and RAM
     if (!connected && config->network.wifi_profile_count > 0) {
         ESP_LOGI(TAG, "Attempting WiFi Station connection...");
+        ESP_LOGI(TAG, "Starting WiFi (Ethernet unavailable)...");
         
         // Sort profiles by priority (bubble sort for simplicity)
         wifi_profile_t profiles[5];
@@ -119,9 +121,10 @@ void network_auto_fallback_task(void *pvParameters)
         }
     }
     
-    // Step 3: Fallback to WiFi AP
+    // Step 3: Fallback to WiFi AP (Priority 3: Last resort)
     if (!connected) {
-        ESP_LOGI(TAG, "Falling back to WiFi AP mode...");
+        ESP_LOGI(TAG, "Falling back to WiFi AP mode (Priority 3)...");
+        ESP_LOGI(TAG, "Starting WiFi AP as fallback...");
         
         ip_config_t ap_config = {
             .use_dhcp = false,

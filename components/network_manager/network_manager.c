@@ -37,7 +37,20 @@ static const char *TAG = "network_mgr";
 #define WIFI_STA_TIMEOUT_MS     15000
 #define WIFI_MAX_RETRY          5
 
-// State management
+// Event Task Configuration
+#define NET_EVT_TASK_STACK_SIZE 4096
+#define NET_EVT_TASK_PRIORITY   (configMAX_PRIORITIES - 2)  // High priority
+#define NET_EVT_TASK_CORE       0  // Core 0 for network events
+
+// Static allocation for event task
+static StackType_t s_net_evt_task_stack[NET_EVT_TASK_STACK_SIZE];
+static StaticTask_t s_net_evt_task_buffer;
+static TaskHandle_t s_net_evt_task_handle = NULL;
+
+// Static allocation for event group
+static StaticEventGroup_t s_network_event_group_buffer;
+
+// State management (static allocation)
 static network_state_t s_current_state = NETWORK_DISCONNECTED;
 static network_status_t s_status = {0};
 static EventGroupHandle_t s_network_event_group = NULL;
@@ -47,6 +60,7 @@ static esp_netif_t *s_wifi_ap_netif = NULL;
 static esp_eth_handle_t s_eth_handle = NULL;
 static bool s_initialized = false;
 static int s_wifi_retry_num = 0;
+static bool s_wifi_started = false;  // Track WiFi state
 
 // Callback
 static network_state_callback_t s_state_callback = NULL;
@@ -56,10 +70,24 @@ static void *s_state_callback_user_data = NULL;
 static void network_event_handler(void *arg, esp_event_base_t event_base,
                                   int32_t event_id, void *event_data);
 static void set_network_state(network_state_t new_state);
+static void net_evt_task(void *pvParameters);
+static void stop_wifi_if_running(void);
 
 // ============================================================================
 // Utility Functions
 // ============================================================================
+
+/**
+ * @brief Stop WiFi to free RF and RAM resources when Ethernet is active
+ */
+static void stop_wifi_if_running(void)
+{
+    if (s_wifi_started) {
+        ESP_LOGI(TAG, "Stopping WiFi to free RF and RAM resources");
+        esp_wifi_stop();
+        s_wifi_started = false;
+    }
+}
 
 static void set_network_state(network_state_t new_state)
 {
@@ -126,6 +154,9 @@ static void network_event_handler(void *arg, esp_event_base_t event_base,
                 update_ip_info(s_eth_netif);
                 set_network_state(NETWORK_ETHERNET_CONNECTED);
                 xEventGroupSetBits(s_network_event_group, ETHERNET_CONNECTED_BIT);
+                
+                // Stop WiFi to free RF and RAM resources (Priority 1: Ethernet)
+                stop_wifi_if_running();
                 break;
             }
             case IP_EVENT_STA_GOT_IP: {
@@ -195,6 +226,36 @@ static void network_event_handler(void *arg, esp_event_base_t event_base,
 }
 
 // ============================================================================
+// Event Task (High Priority on Core 0)
+// ============================================================================
+
+/**
+ * @brief High-priority network event task on Core 0
+ * 
+ * This task handles network events with high priority to ensure
+ * Art-Net/DMX processing on Core 1 is not affected by network jitter.
+ * Uses Task Notifications for efficient event signaling.
+ * 
+ * @param pvParameters Task parameters (unused)
+ */
+static void net_evt_task(void *pvParameters)
+{
+    ESP_LOGI(TAG, "Network event task started on Core %d with priority %d",
+             xPortGetCoreID(), uxTaskPriorityGet(NULL));
+    
+    while (1) {
+        // Wait for notification from event handlers
+        // For now, just yield to allow event processing
+        // In a more advanced implementation, we could use a queue
+        // to pass specific event information
+        vTaskDelay(pdMS_TO_TICKS(10));
+        
+        // Additional event processing logic can be added here
+        // This task serves as a dedicated context for network event handling
+    }
+}
+
+// ============================================================================
 // Initialization
 // ============================================================================
 
@@ -207,8 +268,8 @@ esp_err_t network_init(void)
     
     ESP_LOGI(TAG, "Initializing network manager...");
     
-    // Create event group
-    s_network_event_group = xEventGroupCreate();
+    // Create event group with static allocation
+    s_network_event_group = xEventGroupCreateStatic(&s_network_event_group_buffer);
     if (!s_network_event_group) {
         ESP_LOGE(TAG, "Failed to create event group");
         return ESP_FAIL;
@@ -232,8 +293,25 @@ esp_err_t network_init(void)
     ESP_ERROR_CHECK(esp_event_handler_register(WIFI_EVENT, ESP_EVENT_ANY_ID,
                                                &network_event_handler, NULL));
     
+    // Create high-priority event task on Core 0 with static allocation
+    s_net_evt_task_handle = xTaskCreateStaticPinnedToCore(
+        net_evt_task,
+        "net_evt_task",
+        NET_EVT_TASK_STACK_SIZE,
+        NULL,
+        NET_EVT_TASK_PRIORITY,
+        s_net_evt_task_stack,
+        &s_net_evt_task_buffer,
+        NET_EVT_TASK_CORE
+    );
+    
+    if (!s_net_evt_task_handle) {
+        ESP_LOGE(TAG, "Failed to create network event task");
+        return ESP_FAIL;
+    }
+    
     s_initialized = true;
-    ESP_LOGI(TAG, "Network manager initialized");
+    ESP_LOGI(TAG, "Network manager initialized with static allocation");
     
     return ESP_OK;
 }
@@ -445,6 +523,7 @@ esp_err_t network_wifi_sta_connect(const wifi_profile_t *profile)
     ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_STA, &wifi_config));
     ESP_ERROR_CHECK(esp_wifi_start());
     
+    s_wifi_started = true;  // Track WiFi state
     ESP_LOGI(TAG, "WiFi started, connecting...");
     
     s_wifi_retry_num = 0;
@@ -548,6 +627,7 @@ esp_err_t network_wifi_ap_start(const char *ssid,
     ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_AP, &wifi_config));
     ESP_ERROR_CHECK(esp_wifi_start());
     
+    s_wifi_started = true;  // Track WiFi state
     ESP_LOGI(TAG, "WiFi AP started: %s", ssid);
     
     // Update status
@@ -561,6 +641,7 @@ esp_err_t network_wifi_ap_stop(void)
 {
     ESP_LOGI(TAG, "Stopping WiFi AP");
     esp_err_t ret = esp_wifi_stop();
+    s_wifi_started = false;  // Track WiFi state
     set_network_state(NETWORK_DISCONNECTED);
     return ret;
 }

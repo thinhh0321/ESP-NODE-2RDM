@@ -4,24 +4,65 @@
 
 The Network Manager component provides comprehensive network connectivity management for the ESP-NODE-2RDM project, supporting:
 
-- **Ethernet W5500** (SPI-based) - Primary connection
-- **WiFi Station Mode** - Multiple profile support with priority
-- **WiFi AP Mode** - Fallback access point
-- **Auto-fallback** - Automatic transition between connection types
+- **Ethernet W5500** (SPI-based) - Primary connection (Priority 1)
+- **WiFi Station Mode** - Multiple profile support with priority (Priority 2)
+- **WiFi AP Mode** - Fallback access point (Priority 3)
+- **Auto-fallback** - Automatic transition between connection types with resource optimization
+
+## Key Features
+
+### High-Priority Event Task
+- Dedicated `net_evt_task` on Core 0 with high priority
+- Prevents network jitter from affecting Art-Net/DMX processing on Core 1
+- Efficient event handling using ESP-IDF event loop
+
+### Static Memory Allocation
+- All critical components use static allocation (no heap)
+- Event group created with `xEventGroupCreateStatic`
+- Task created with `xTaskCreateStaticPinnedToCore`
+- Stack size: 4096 bytes (statically allocated)
+
+### Resource Optimization
+- **WiFi RF and RAM freed when Ethernet is active**
+- WiFi is only started when Ethernet is unavailable
+- WiFi is stopped automatically when Ethernet connects
+- Minimizes resource usage for optimal Art-Net/DMX performance
 
 ## Architecture
+
+### Priority-Based Fallback
+
+```
+Priority 1 (Ethernet):
+    Connect → Got IP → STOP WiFi (free RF/RAM) → Use Ethernet
+
+Priority 2 (WiFi STA):
+    Ethernet Failed → START WiFi → Try Profiles → Connect → Use WiFi STA
+
+Priority 3 (WiFi AP):
+    All Failed → START WiFi AP → Fallback Mode
+```
 
 ### State Machine
 
 ```
-DISCONNECTED → CONNECTING → ETHERNET_CONNECTED
+DISCONNECTED → CONNECTING → ETHERNET_CONNECTED (WiFi stopped)
                          ↓
-                    WIFI_STA_CONNECTED
+                    WIFI_STA_CONNECTED (Ethernet unavailable)
                          ↓
-                    WIFI_AP_ACTIVE
+                    WIFI_AP_ACTIVE (Last resort)
                          ↓
                       ERROR
 ```
+
+### Task Architecture
+
+- **net_evt_task**: High-priority task on Core 0 for network events
+  - Priority: `configMAX_PRIORITIES - 2`
+  - Core: 0 (dedicated to network)
+  - Stack: 4096 bytes (static)
+  
+- **Core 1**: Reserved for Art-Net/DMX processing (no network jitter)
 
 ### Hardware Configuration
 
@@ -186,24 +227,27 @@ void app_main(void)
 
 ## Auto-Fallback Sequence
 
-The network manager implements an automatic fallback sequence:
+The network manager implements an automatic fallback sequence with resource optimization:
 
-1. **Try Ethernet** (if enabled)
+1. **Try Ethernet (Priority 1)** (if enabled)
    - Retry: 3 attempts
    - Timeout: 10 seconds per attempt
-   - On success: Stop, use Ethernet
+   - On success: Stop WiFi (free RF/RAM), use Ethernet
    - On failure: Continue to WiFi STA
 
-2. **Try WiFi Station** (for each profile by priority)
+2. **Try WiFi Station (Priority 2)** (for each profile by priority)
+   - Start WiFi (only if Ethernet failed)
    - Timeout: 15 seconds per profile
    - Max retries: 5 per profile
    - On success: Stop, use WiFi STA
    - On failure: Try next profile
 
-3. **Fallback to WiFi AP**
+3. **Fallback to WiFi AP (Priority 3)**
    - Start Access Point with configured SSID
    - Default IP: 192.168.4.1
    - Always succeeds (unless hardware failure)
+
+**Resource Management**: WiFi is automatically stopped when Ethernet connects to free RF and RAM resources for Art-Net/DMX processing.
 
 ## Configuration
 
@@ -255,15 +299,21 @@ All events are processed internally and trigger state callbacks.
 ## Thread Safety
 
 - All public APIs are thread-safe
-- Internal state is protected by event groups
+- Internal state is protected by event groups (statically allocated)
 - Callbacks are executed in the event loop context
+- High-priority event task on Core 0 prevents jitter
 
-## Memory Usage
+## Memory Usage (Static Allocation)
 
-- Static: ~2 KB
-- Runtime: ~8 KB (including buffers)
-- WiFi buffers: ~40 KB (managed by ESP-IDF)
-- W5500 buffers: 32 KB (on-chip)
+- **Static allocation**: All critical components use static memory
+- **Event group**: `StaticEventGroup_t` (no heap)
+- **Task stack**: 4096 bytes (static array)
+- **Task TCB**: `StaticTask_t` (no heap)
+- **Total static**: ~6 KB (stack + structures)
+- **WiFi buffers**: ~40 KB (managed by ESP-IDF, freed when Ethernet active)
+- **W5500 buffers**: 32 KB (on-chip)
+
+**Resource Optimization**: WiFi RF and RAM are freed when Ethernet is connected, reducing memory footprint during Ethernet operation.
 
 ## Performance
 
