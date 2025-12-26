@@ -36,7 +36,7 @@ extern "C" {
 
 // DMX constants
 #define DMX_CHANNEL_COUNT 512
-#define DMX_FRAME_SIZE (DMX_CHANNEL_COUNT + 1)  // Including start code
+#define DMX_FRAME_SIZE (DMX_CHANNEL_COUNT + 1)  // Start code (1 byte) + 512 data channels = 513 bytes total
 #define DMX_MAX_DEVICES 32
 
 // RDM UIDs (6 bytes)
@@ -279,6 +279,9 @@ esp_err_t dmx_handler_get_rdm_devices(uint8_t port, rdm_device_t *devices, size_
  * 
  * Sends an RDM GET command to a specific device.
  * 
+ * @note This function is currently a stub and will return ESP_ERR_NOT_SUPPORTED.
+ *       Full implementation will be completed after esp-dmx library integration.
+ * 
  * @param port Port number (1 or 2)
  * @param uid Target device UID
  * @param pid Parameter ID (e.g., DMX_START_ADDRESS)
@@ -289,6 +292,7 @@ esp_err_t dmx_handler_get_rdm_devices(uint8_t port, rdm_device_t *devices, size_
  *     - ESP_ERR_INVALID_ARG if parameters invalid
  *     - ESP_ERR_INVALID_STATE if port not in RDM master mode
  *     - ESP_ERR_TIMEOUT if no response
+ *     - ESP_ERR_NOT_SUPPORTED if not yet implemented
  */
 esp_err_t dmx_handler_rdm_get(uint8_t port, const rdm_uid_t uid, uint16_t pid, 
                               uint8_t *response_data, size_t *response_size);
@@ -297,6 +301,9 @@ esp_err_t dmx_handler_rdm_get(uint8_t port, const rdm_uid_t uid, uint16_t pid,
  * @brief Send RDM SET command
  * 
  * Sends an RDM SET command to a specific device.
+ * 
+ * @note This function is currently a stub and will return ESP_ERR_NOT_SUPPORTED.
+ *       Full implementation will be completed after esp-dmx library integration.
  * 
  * @param port Port number (1 or 2)
  * @param uid Target device UID
@@ -308,6 +315,7 @@ esp_err_t dmx_handler_rdm_get(uint8_t port, const rdm_uid_t uid, uint16_t pid,
  *     - ESP_ERR_INVALID_ARG if parameters invalid
  *     - ESP_ERR_INVALID_STATE if port not in RDM master mode
  *     - ESP_ERR_TIMEOUT if no response
+ *     - ESP_ERR_NOT_SUPPORTED if not yet implemented
  */
 esp_err_t dmx_handler_rdm_set(uint8_t port, const rdm_uid_t uid, uint16_t pid, 
                               const uint8_t *data, size_t size);

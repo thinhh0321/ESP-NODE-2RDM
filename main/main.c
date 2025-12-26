@@ -11,6 +11,18 @@
 
 static const char *TAG = "main";
 
+// Helper function to convert DMX mode to string
+static const char* dmx_mode_to_string(dmx_mode_t mode) {
+    switch (mode) {
+        case DMX_MODE_DISABLED: return "Disabled";
+        case DMX_MODE_OUTPUT: return "DMX Output";
+        case DMX_MODE_INPUT: return "DMX Input";
+        case DMX_MODE_RDM_MASTER: return "RDM Master";
+        case DMX_MODE_RDM_RESPONDER: return "RDM Responder";
+        default: return "Unknown";
+    }
+}
+
 // Network state callback
 static void network_state_changed(network_state_t state, void *user_data)
 {
@@ -87,12 +99,12 @@ void app_main(void)
     
     // Start DMX ports if not disabled
     if (config->port1.mode != DMX_MODE_DISABLED) {
-        ESP_LOGI(TAG, "Starting DMX port 1 in mode %d", config->port1.mode);
+        ESP_LOGI(TAG, "Starting DMX port 1 in mode: %s", dmx_mode_to_string(config->port1.mode));
         ESP_ERROR_CHECK(dmx_handler_start_port(DMX_PORT_1));
     }
     
     if (config->port2.mode != DMX_MODE_DISABLED) {
-        ESP_LOGI(TAG, "Starting DMX port 2 in mode %d", config->port2.mode);
+        ESP_LOGI(TAG, "Starting DMX port 2 in mode: %s", dmx_mode_to_string(config->port2.mode));
         ESP_ERROR_CHECK(dmx_handler_start_port(DMX_PORT_2));
     }
     
