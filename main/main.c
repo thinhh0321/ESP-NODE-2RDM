@@ -6,8 +6,36 @@
 #include "storage_manager.h"
 #include "config_manager.h"
 #include "led_manager.h"
+#include "network_manager.h"
 
 static const char *TAG = "main";
+
+// Network state callback
+static void network_state_changed(network_state_t state, void *user_data)
+{
+    ESP_LOGI(TAG, "Network state changed: %d", state);
+    
+    // Update LED based on network state
+    switch (state) {
+        case NETWORK_ETHERNET_CONNECTED:
+            led_manager_set_state(LED_STATE_ETHERNET_OK);
+            break;
+        case NETWORK_WIFI_STA_CONNECTED:
+            led_manager_set_state(LED_STATE_WIFI_STA_OK);
+            break;
+        case NETWORK_WIFI_AP_ACTIVE:
+            led_manager_set_state(LED_STATE_WIFI_AP);
+            break;
+        case NETWORK_ERROR:
+            led_manager_set_state(LED_STATE_ERROR);
+            break;
+        case NETWORK_DISCONNECTED:
+        case NETWORK_CONNECTING:
+        default:
+            led_manager_set_state(LED_STATE_BOOT);
+            break;
+    }
+}
 
 void app_main(void)
 {
@@ -34,42 +62,34 @@ void app_main(void)
 
     // Initialize LED Manager
     ESP_ERROR_CHECK(led_manager_init());
-    
-    // Test Sequence (Temporary for SPRINT 2 Verification)
-    ESP_LOGI(TAG, "Starting LED Manager Test Sequence...");
-    
-    // 1. BOOT (Blue)
     led_manager_set_state(LED_STATE_BOOT);
-    vTaskDelay(pdMS_TO_TICKS(2000));
-
-    // 2. NETWORK (Green)
-    led_manager_set_state(LED_STATE_ETHERNET_OK);
-    vTaskDelay(pdMS_TO_TICKS(2000));
-
-    // 3. WIFI STA (Green Blink)
-    led_manager_set_state(LED_STATE_WIFI_STA_OK);
-    vTaskDelay(pdMS_TO_TICKS(3000));
-
-    // 4. ERROR (Red Fast Blink)
-    led_manager_set_state(LED_STATE_ERROR);
-    vTaskDelay(pdMS_TO_TICKS(2000));
-
-    // 5. Pulse Test
-    led_manager_set_state(LED_STATE_ETHERNET_OK); // Back to steady
-    vTaskDelay(pdMS_TO_TICKS(1000));
     
-    // clear test
-    led_manager_clear();
-    vTaskDelay(pdMS_TO_TICKS(10));
+    // Initialize Network Manager
+    ESP_LOGI(TAG, "Initializing network manager...");
+    ESP_ERROR_CHECK(network_init());
     
-    for(int i=0; i<5; i++) {
-        led_manager_pulse();
-        vTaskDelay(pdMS_TO_TICKS(200));
-    }
+    // Register network state callback
+    network_register_state_callback(network_state_changed, NULL);
+    
+    // Start network with auto-fallback (asynchronous)
+    ESP_LOGI(TAG, "Starting network with auto-fallback...");
+    ESP_ERROR_CHECK(network_start_with_fallback());
     
     ESP_LOGI(TAG, "System initialized successfully");
     
+    // Main loop
     while (1) {
-        vTaskDelay(pdMS_TO_TICKS(1000));
+        // Get network status periodically
+        network_status_t status;
+        if (network_get_status(&status) == ESP_OK) {
+            if (network_is_connected()) {
+                const char *ip = network_get_ip_address();
+                if (ip) {
+                    ESP_LOGI(TAG, "Network connected - IP: %s", ip);
+                }
+            }
+        }
+        
+        vTaskDelay(pdMS_TO_TICKS(10000)); // Log every 10 seconds
     }
 }
