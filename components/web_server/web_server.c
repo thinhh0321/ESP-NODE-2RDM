@@ -31,6 +31,9 @@
 #include "sacn_receiver.h"
 #include "merge_engine.h"
 
+// Embedded web files
+#include "web_files.h"
+
 static const char *TAG = "web_server";
 
 // WebSocket frame opcodes
@@ -78,6 +81,7 @@ static esp_err_t api_system_stats_handler(httpd_req_t *req);
 static esp_err_t api_system_restart_handler(httpd_req_t *req);
 static esp_err_t ws_handler(httpd_req_t *req);
 static esp_err_t root_handler(httpd_req_t *req);
+static esp_err_t js_main_handler(httpd_req_t *req);
 
 // Helper functions
 static void send_json_response(httpd_req_t *req, cJSON *json, int status);
@@ -163,6 +167,15 @@ esp_err_t web_server_start(void)
         .user_ctx = NULL
     };
     httpd_register_uri_handler(server_state.server, &root_uri);
+    
+    // JavaScript file
+    httpd_uri_t js_main_uri = {
+        .uri = "/main.js",
+        .method = HTTP_GET,
+        .handler = js_main_handler,
+        .user_ctx = NULL
+    };
+    httpd_register_uri_handler(server_state.server, &js_main_uri);
     
     // Configuration APIs
     httpd_uri_t config_get_uri = {
@@ -380,54 +393,21 @@ static esp_err_t root_handler(httpd_req_t *req)
 {
     server_state.total_requests++;
     
-    const char *html = 
-        "<!DOCTYPE html>\n"
-        "<html>\n"
-        "<head>\n"
-        "  <title>ESP-NODE-2RDM</title>\n"
-        "  <meta charset=\"utf-8\">\n"
-        "  <style>\n"
-        "    body { font-family: Arial, sans-serif; margin: 20px; background: #f0f0f0; }\n"
-        "    .container { max-width: 1200px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; }\n"
-        "    h1 { color: #333; border-bottom: 2px solid #007bff; padding-bottom: 10px; }\n"
-        "    .section { margin: 20px 0; padding: 15px; background: #f9f9f9; border-radius: 4px; }\n"
-        "    .status { display: inline-block; padding: 5px 10px; border-radius: 4px; margin: 5px; }\n"
-        "    .status.ok { background: #28a745; color: white; }\n"
-        "    .status.error { background: #dc3545; color: white; }\n"
-        "    button { padding: 10px 20px; margin: 5px; cursor: pointer; background: #007bff; color: white; border: none; border-radius: 4px; }\n"
-        "    button:hover { background: #0056b3; }\n"
-        "  </style>\n"
-        "</head>\n"
-        "<body>\n"
-        "  <div class=\"container\">\n"
-        "    <h1>ESP-NODE-2RDM Web Interface</h1>\n"
-        "    <div class=\"section\">\n"
-        "      <h2>System Status</h2>\n"
-        "      <p>Firmware Version: 0.1.0</p>\n"
-        "      <p>Device: ESP32-S3 Art-Net / sACN to DMX512 Node</p>\n"
-        "      <button onclick=\"fetch('/api/system/stats').then(r=>r.json()).then(d=>alert(JSON.stringify(d, null, 2)))\">Get Statistics</button>\n"
-        "      <button onclick=\"if(confirm('Restart device?'))fetch('/api/system/restart',{method:'POST'})\">Restart Device</button>\n"
-        "    </div>\n"
-        "    <div class=\"section\">\n"
-        "      <h2>API Endpoints</h2>\n"
-        "      <p>Configuration: GET/POST <code>/api/config</code></p>\n"
-        "      <p>Network Status: GET <code>/api/network/status</code></p>\n"
-        "      <p>Ports Status: GET <code>/api/ports/status</code></p>\n"
-        "      <p>System Info: GET <code>/api/system/info</code></p>\n"
-        "      <p>System Stats: GET <code>/api/system/stats</code></p>\n"
-        "      <p>WebSocket: <code>/ws/dmx/{port}</code> (real-time DMX levels)</p>\n"
-        "    </div>\n"
-        "    <div class=\"section\">\n"
-        "      <h2>Quick Actions</h2>\n"
-        "      <button onclick=\"fetch('/api/ports/1/blackout',{method:'POST'}).then(()=>alert('Port 1 blackout'))\">Blackout Port 1</button>\n"
-        "      <button onclick=\"fetch('/api/ports/2/blackout',{method:'POST'}).then(()=>alert('Port 2 blackout'))\">Blackout Port 2</button>\n"
-        "    </div>\n"
-        "  </div>\n"
-        "</body>\n"
-        "</html>";
-    
     httpd_resp_set_type(req, "text/html");
-    return httpd_resp_send(req, html, strlen(html));
+    httpd_resp_set_hdr(req, "Cache-Control", "no-cache");
+    return httpd_resp_send(req, html_index, strlen(html_index));
+}
+
+/**
+ * @brief GET /main.js - Serve JavaScript file
+ */
+static esp_err_t js_main_handler(httpd_req_t *req)
+{
+    server_state.total_requests++;
+    
+    httpd_resp_set_type(req, "application/javascript");
+    httpd_resp_set_hdr(req, "Cache-Control", "max-age=3600");
+    return httpd_resp_send(req, js_main, strlen(js_main));
 }
 
 /**
