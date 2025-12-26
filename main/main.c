@@ -7,6 +7,7 @@
 #include "config_manager.h"
 #include "led_manager.h"
 #include "network_manager.h"
+#include "dmx_handler.h"
 
 static const char *TAG = "main";
 
@@ -75,6 +76,26 @@ void app_main(void)
     ESP_LOGI(TAG, "Starting network with auto-fallback...");
     ESP_ERROR_CHECK(network_start_with_fallback());
     
+    // Initialize DMX Handler
+    ESP_LOGI(TAG, "Initializing DMX handler...");
+    ESP_ERROR_CHECK(dmx_handler_init());
+    
+    // Configure DMX ports based on config
+    ESP_LOGI(TAG, "Configuring DMX ports...");
+    ESP_ERROR_CHECK(dmx_handler_configure_port(DMX_PORT_1, &config->port1));
+    ESP_ERROR_CHECK(dmx_handler_configure_port(DMX_PORT_2, &config->port2));
+    
+    // Start DMX ports if not disabled
+    if (config->port1.mode != DMX_MODE_DISABLED) {
+        ESP_LOGI(TAG, "Starting DMX port 1 in mode %d", config->port1.mode);
+        ESP_ERROR_CHECK(dmx_handler_start_port(DMX_PORT_1));
+    }
+    
+    if (config->port2.mode != DMX_MODE_DISABLED) {
+        ESP_LOGI(TAG, "Starting DMX port 2 in mode %d", config->port2.mode);
+        ESP_ERROR_CHECK(dmx_handler_start_port(DMX_PORT_2));
+    }
+    
     ESP_LOGI(TAG, "System initialized successfully");
     
     // Main loop
@@ -88,6 +109,18 @@ void app_main(void)
                     ESP_LOGI(TAG, "Network connected - IP: %s", ip);
                 }
             }
+        }
+        
+        // Get DMX port status
+        dmx_port_status_t dmx_status;
+        if (dmx_handler_get_port_status(DMX_PORT_1, &dmx_status) == ESP_OK && dmx_status.is_active) {
+            ESP_LOGI(TAG, "DMX Port 1 - Mode: %d, Frames sent: %lu, Frames received: %lu",
+                     dmx_status.mode, dmx_status.stats.frames_sent, dmx_status.stats.frames_received);
+        }
+        
+        if (dmx_handler_get_port_status(DMX_PORT_2, &dmx_status) == ESP_OK && dmx_status.is_active) {
+            ESP_LOGI(TAG, "DMX Port 2 - Mode: %d, Frames sent: %lu, Frames received: %lu",
+                     dmx_status.mode, dmx_status.stats.frames_sent, dmx_status.stats.frames_received);
         }
         
         vTaskDelay(pdMS_TO_TICKS(10000)); // Log every 10 seconds
