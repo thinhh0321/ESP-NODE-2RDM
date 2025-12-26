@@ -324,10 +324,144 @@ const app = {
                 this.lastFrameTime = now;
             }
             
+            // Update DMX channel visualization
+            this.updateDMXVisualization();
+            
             this.updateConnectionStatus(true);
         } catch (error) {
             this.updateConnectionStatus(false);
         }
+    },
+    
+    /**
+     * Update DMX channel visualization with simulated or real data
+     */
+    async updateDMXVisualization() {
+        try {
+            // For now, simulate DMX data since we don't have a real endpoint yet
+            // In production, this would fetch from /api/ports/1/dmx and /api/ports/2/dmx
+            
+            // Simulate realistic DMX data for demonstration
+            // Replace with actual API call when backend is ready
+            const port1Data = this.generateSimulatedDMX(1);
+            const port2Data = this.generateSimulatedDMX(2);
+            
+            // Update Port 1 channels
+            for (let i = 1; i <= 8; i++) {
+                this.updateDMXChannel(1, i, port1Data[i - 1]);
+            }
+            
+            // Update Port 2 channels
+            for (let i = 1; i <= 8; i++) {
+                this.updateDMXChannel(2, i, port2Data[i - 1]);
+            }
+            
+            // Update signal strength indicators
+            this.updateSignalStrength(1, port1Data);
+            this.updateSignalStrength(2, port2Data);
+            
+        } catch (error) {
+            console.error('Failed to update DMX visualization:', error);
+        }
+    },
+    
+    /**
+     * Update individual DMX channel display
+     */
+    updateDMXChannel(port, channel, value) {
+        const barElement = document.getElementById(`dmx${port}-ch${channel}`);
+        const pctElement = document.getElementById(`dmx${port}-ch${channel}-pct`);
+        
+        if (barElement && pctElement) {
+            const percentage = ((value / 255) * 100).toFixed(0);
+            const valueSpan = barElement.querySelector('.dmx-value');
+            
+            barElement.style.height = percentage + '%';
+            
+            // Change color for high values (>200)
+            if (value > 200) {
+                barElement.classList.add('high');
+            } else {
+                barElement.classList.remove('high');
+            }
+            
+            if (valueSpan) {
+                valueSpan.textContent = value;
+            }
+            
+            pctElement.textContent = percentage + '%';
+        }
+    },
+    
+    /**
+     * Update signal strength indicator
+     */
+    updateSignalStrength(port, dmxData) {
+        const fillElement = document.getElementById(`port${port}SignalFill`);
+        const textElement = document.getElementById(`port${port}SignalText`);
+        
+        if (fillElement && textElement) {
+            // Calculate average signal strength (0-100%)
+            const avgValue = dmxData.reduce((sum, val) => sum + val, 0) / dmxData.length;
+            const strength = ((avgValue / 255) * 100).toFixed(0);
+            
+            fillElement.style.width = strength + '%';
+            textElement.textContent = strength + '%';
+            
+            // Change color based on strength
+            fillElement.classList.remove('weak', 'medium');
+            if (strength < 30) {
+                fillElement.classList.add('weak');
+            } else if (strength < 70) {
+                fillElement.classList.add('medium');
+            }
+        }
+    },
+    
+    /**
+     * Generate simulated DMX data for demonstration
+     * In production, replace with actual API call to fetch real DMX data
+     */
+    generateSimulatedDMX(port) {
+        // Generate semi-realistic DMX values that change over time
+        const data = [];
+        const time = Date.now() / 1000;
+        
+        for (let i = 0; i < 8; i++) {
+            // Create different patterns for each channel
+            let value;
+            
+            if (i === 0) {
+                // CH1: Sine wave (0-255)
+                value = Math.floor((Math.sin(time + port) + 1) * 127.5);
+            } else if (i === 1) {
+                // CH2: Fast pulse
+                value = Math.floor((Math.sin(time * 2 + port) + 1) * 127.5);
+            } else if (i === 2) {
+                // CH3: Slow ramp
+                value = Math.floor(((time * 0.5 + port) % 1) * 255);
+            } else if (i === 3) {
+                // CH4: Random with smoothing
+                value = Math.floor(Math.random() * 128 + 64);
+            } else if (i === 4) {
+                // CH5: Triangle wave
+                const t = (time + port) % 2;
+                value = Math.floor(t < 1 ? t * 255 : (2 - t) * 255);
+            } else if (i === 5) {
+                // CH6: Step function
+                value = Math.floor((time + port) % 2) < 1 ? 200 : 50;
+            } else if (i === 6) {
+                // CH7: Cosine wave
+                value = Math.floor((Math.cos(time * 1.5 + port) + 1) * 127.5);
+            } else {
+                // CH8: Combination
+                value = Math.floor((Math.sin(time) * Math.cos(time * 0.7 + port) + 1) * 127.5);
+            }
+            
+            data.push(Math.max(0, Math.min(255, value)));
+        }
+        
+        return data;
     },
     
     /**
