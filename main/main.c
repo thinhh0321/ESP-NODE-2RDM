@@ -11,6 +11,7 @@
 #include "artnet_receiver.h"
 #include "sacn_receiver.h"
 #include "merge_engine.h"
+#include "web_server.h"
 #include "lwip/ip_addr.h"
 
 static const char *TAG = "main";
@@ -231,6 +232,16 @@ void app_main(void)
         NULL,
         1  // Run on Core 1 with DMX tasks
     );
+    
+    // Initialize and start web server
+    ESP_LOGI(TAG, "Initializing web server...");
+    ESP_ERROR_CHECK(web_server_init(NULL));  // Use default config
+    ESP_ERROR_CHECK(web_server_start());
+    
+    const char *ip = network_get_ip_address();
+    if (ip) {
+        ESP_LOGI(TAG, "Web server available at http://%s/", ip);
+    }
     
     ESP_LOGI(TAG, "System initialized successfully");
     
