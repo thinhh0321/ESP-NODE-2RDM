@@ -64,6 +64,10 @@ static const char *TAG = "dmx_handler";
 #define DMX_INTR_FLAGS_DEFAULT 0
 #endif
 
+#ifndef DMX_CONFIG_DEFAULT
+#define DMX_CONFIG_DEFAULT {}
+#endif
+
 // Blackout value
 #define DMX_BLACKOUT_VALUE 0
 
@@ -487,8 +491,13 @@ esp_err_t dmx_handler_set_channels(uint8_t port, uint16_t start_channel,
         return ESP_ERR_INVALID_STATE;
     }
     
-    if (!data || length == 0 || start_channel < 1 || start_channel > DMX_CHANNEL_COUNT ||
-        (start_channel + length - 1) > DMX_CHANNEL_COUNT) {
+    // Validate parameters (check for overflow-safe conditions)
+    if (!data || length == 0 || start_channel < 1 || start_channel > DMX_CHANNEL_COUNT) {
+        return ESP_ERR_INVALID_ARG;
+    }
+    
+    // Check end channel without overflow risk
+    if (length > DMX_CHANNEL_COUNT || start_channel > (DMX_CHANNEL_COUNT - length + 1)) {
         return ESP_ERR_INVALID_ARG;
     }
     

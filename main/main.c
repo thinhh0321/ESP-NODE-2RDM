@@ -112,15 +112,16 @@ void app_main(void)
         }
         
         // Get DMX port status
-        dmx_port_status_t dmx_status;
-        if (dmx_handler_get_port_status(DMX_PORT_1, &dmx_status) == ESP_OK && dmx_status.is_active) {
+        dmx_port_status_t dmx_status_port1;
+        if (dmx_handler_get_port_status(DMX_PORT_1, &dmx_status_port1) == ESP_OK && dmx_status_port1.is_active) {
             ESP_LOGI(TAG, "DMX Port 1 - Mode: %d, Frames sent: %lu, Frames received: %lu",
-                     dmx_status.mode, dmx_status.stats.frames_sent, dmx_status.stats.frames_received);
+                     dmx_status_port1.mode, dmx_status_port1.stats.frames_sent, dmx_status_port1.stats.frames_received);
         }
         
-        if (dmx_handler_get_port_status(DMX_PORT_2, &dmx_status) == ESP_OK && dmx_status.is_active) {
+        dmx_port_status_t dmx_status_port2;
+        if (dmx_handler_get_port_status(DMX_PORT_2, &dmx_status_port2) == ESP_OK && dmx_status_port2.is_active) {
             ESP_LOGI(TAG, "DMX Port 2 - Mode: %d, Frames sent: %lu, Frames received: %lu",
-                     dmx_status.mode, dmx_status.stats.frames_sent, dmx_status.stats.frames_received);
+                     dmx_status_port2.mode, dmx_status_port2.stats.frames_sent, dmx_status_port2.stats.frames_received);
         }
         
         vTaskDelay(pdMS_TO_TICKS(10000)); // Log every 10 seconds
