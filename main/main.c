@@ -5,6 +5,7 @@
 #include "nvs_flash.h"
 #include "storage_manager.h"
 #include "config_manager.h"
+#include "led_manager.h"
 
 static const char *TAG = "main";
 
@@ -30,6 +31,41 @@ void app_main(void)
     
     config_t *config = config_get();
     ESP_LOGI(TAG, "Node: %s", config->node_info.short_name);
+
+    // Initialize LED Manager
+    ESP_ERROR_CHECK(led_manager_init());
+    
+    // Test Sequence (Temporary for SPRINT 2 Verification)
+    ESP_LOGI(TAG, "Starting LED Manager Test Sequence...");
+    
+    // 1. BOOT (Blue)
+    led_manager_set_state(LED_STATE_BOOT);
+    vTaskDelay(pdMS_TO_TICKS(2000));
+
+    // 2. NETWORK (Green)
+    led_manager_set_state(LED_STATE_ETHERNET_OK);
+    vTaskDelay(pdMS_TO_TICKS(2000));
+
+    // 3. WIFI STA (Green Blink)
+    led_manager_set_state(LED_STATE_WIFI_STA_OK);
+    vTaskDelay(pdMS_TO_TICKS(3000));
+
+    // 4. ERROR (Red Fast Blink)
+    led_manager_set_state(LED_STATE_ERROR);
+    vTaskDelay(pdMS_TO_TICKS(2000));
+
+    // 5. Pulse Test
+    led_manager_set_state(LED_STATE_ETHERNET_OK); // Back to steady
+    vTaskDelay(pdMS_TO_TICKS(1000));
+    
+    // clear test
+    led_manager_clear();
+    vTaskDelay(pdMS_TO_TICKS(10));
+    
+    for(int i=0; i<5; i++) {
+        led_manager_pulse();
+        vTaskDelay(pdMS_TO_TICKS(200));
+    }
     
     ESP_LOGI(TAG, "System initialized successfully");
     
