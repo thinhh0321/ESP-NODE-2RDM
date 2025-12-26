@@ -51,6 +51,22 @@ static const char *TAG = "dmx_handler";
 #define DMX_RX_TIMEOUT_MS   1000
 #define RDM_RESPONSE_TIMEOUT_MS 200
 
+// DMX constants (fallback if not defined by esp-dmx)
+#ifndef DMX_SC
+#define DMX_SC 0x00  // DMX512 start code
+#endif
+
+#ifndef DMX_TIMEOUT_TICK
+#define DMX_TIMEOUT_TICK portMAX_DELAY
+#endif
+
+#ifndef DMX_INTR_FLAGS_DEFAULT
+#define DMX_INTR_FLAGS_DEFAULT 0
+#endif
+
+// Blackout value
+#define DMX_BLACKOUT_VALUE 0
+
 /**
  * @brief Port context structure
  */
@@ -245,7 +261,7 @@ esp_err_t dmx_handler_configure_port(uint8_t port, const port_config_t *config)
     
     // Clear DMX buffer
     xSemaphoreTake(port_ctx->buffer_mutex, portMAX_DELAY);
-    memset(port_ctx->dmx_buffer, 0, DMX_CHANNEL_COUNT);
+    memset(port_ctx->dmx_buffer, DMX_BLACKOUT_VALUE, DMX_CHANNEL_COUNT);
     xSemaphoreGive(port_ctx->buffer_mutex);
     
     xSemaphoreGive(dmx_state.state_mutex);
@@ -471,7 +487,7 @@ esp_err_t dmx_handler_set_channels(uint8_t port, uint16_t start_channel,
         return ESP_ERR_INVALID_STATE;
     }
     
-    if (!data || start_channel < 1 || start_channel > DMX_CHANNEL_COUNT ||
+    if (!data || length == 0 || start_channel < 1 || start_channel > DMX_CHANNEL_COUNT ||
         (start_channel + length - 1) > DMX_CHANNEL_COUNT) {
         return ESP_ERR_INVALID_ARG;
     }
@@ -508,7 +524,7 @@ esp_err_t dmx_handler_blackout(uint8_t port)
     }
     
     xSemaphoreTake(port_ctx->buffer_mutex, portMAX_DELAY);
-    memset(port_ctx->dmx_buffer, 0, DMX_CHANNEL_COUNT);
+    memset(port_ctx->dmx_buffer, DMX_BLACKOUT_VALUE, DMX_CHANNEL_COUNT);
     xSemaphoreGive(port_ctx->buffer_mutex);
     
     ESP_LOGI(TAG, "Port %d blackout", port);
@@ -693,6 +709,10 @@ esp_err_t dmx_handler_rdm_set(uint8_t port, const rdm_uid_t uid, uint16_t pid,
 
 /**
  * @brief Install DMX driver for port
+ * 
+ * Note: This function uses esp-dmx library API. Constants like DMX_CONFIG_DEFAULT
+ * and DMX_INTR_FLAGS_DEFAULT should be provided by the esp-dmx library headers.
+ * Fallback definitions are provided above if not available.
  */
 static esp_err_t port_install_driver(dmx_port_context_t *port_ctx)
 {

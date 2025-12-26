@@ -20,4 +20,4 @@ dependencies:
   espressif/led_strip: ^3.0.2
   esp_dmx:
     git: https://github.com/someweisguy/esp-dmx.git
-    version: "*"
+    version: ">=3.0.0"  # Minimum version required for DMX512/RDM support

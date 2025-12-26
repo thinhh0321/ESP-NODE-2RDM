@@ -70,7 +70,7 @@ typedef struct {
     uint32_t rdm_requests_sent; /**< Total RDM requests sent */
     uint32_t rdm_responses_rx;  /**< Total RDM responses received */
     uint32_t error_count;       /**< Total errors */
-    uint32_t last_frame_time_ms;/**< Last frame timestamp (ms) */
+    uint32_t last_frame_time_ms; /**< Last frame timestamp (ms) */
 } dmx_port_stats_t;
 
 /**
