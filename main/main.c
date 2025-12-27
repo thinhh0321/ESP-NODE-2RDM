@@ -57,13 +57,11 @@ static void network_state_changed(network_state_t state, void *user_data)
 
 // Art-Net DMX data callback
 static void on_artnet_dmx(uint16_t universe, const uint8_t *data, 
-                          uint16_t length, uint8_t sequence, void *user_data)
+                          uint16_t length, uint8_t sequence, uint32_t source_ip,
+                          void *user_data)
 {
-    ESP_LOGD(TAG, "Art-Net DMX received: Universe=%d, Length=%d, Seq=%d",
-             universe, length, sequence);
-    
-    // Get source IP (would need to be passed from receiver in real implementation)
-    uint32_t source_ip = 0;  // Placeholder - should be extracted from packet
+    ESP_LOGD(TAG, "Art-Net DMX received: Universe=%d, Length=%d, Seq=%d, SourceIP=0x%08lx",
+             universe, length, sequence, source_ip);
     
     // Route to appropriate DMX port based on universe
     config_t *config = config_get();
@@ -81,18 +79,15 @@ static void on_artnet_dmx(uint16_t universe, const uint8_t *data,
 static void on_sacn_dmx(uint16_t universe, const uint8_t *data,
                         uint8_t priority, uint8_t sequence,
                         bool preview, const char *source_name,
-                        void *user_data)
+                        uint32_t source_ip, void *user_data)
 {
-    ESP_LOGD(TAG, "sACN DMX received: Universe=%d, Priority=%d, Seq=%d, Preview=%d, Source=%s",
-             universe, priority, sequence, preview, source_name);
+    ESP_LOGD(TAG, "sACN DMX received: Universe=%d, Priority=%d, Seq=%d, Preview=%d, Source=%s, SourceIP=0x%08lx",
+             universe, priority, sequence, preview, source_name, source_ip);
     
     // Skip preview data
     if (preview) {
         return;
     }
-    
-    // Get source IP (would need to be passed from receiver in real implementation)
-    uint32_t source_ip = 0;  // Placeholder
     
     // Route to appropriate DMX port based on universe
     config_t *config = config_get();

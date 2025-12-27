@@ -80,8 +80,10 @@ static struct {
 
 // Forward declarations
 static void sacn_receive_task(void *arg);
-static esp_err_t process_sacn_packet(const uint8_t *buffer, size_t length);
-static esp_err_t process_sacn_data(const sacn_packet_t *packet);
+static esp_err_t process_sacn_packet(const uint8_t *buffer, size_t length,
+                                     const struct sockaddr_in *src_addr);
+static esp_err_t process_sacn_data(const sacn_packet_t *packet,
+                                   const struct sockaddr_in *src_addr);
 static void calculate_multicast_addr(uint16_t universe, struct in_addr *addr);
 
 /**
@@ -499,12 +501,15 @@ uint8_t sacn_receiver_get_subscription_count(void)
 static void sacn_receive_task(void *arg)
 {
     uint8_t buffer[SACN_MAX_PACKET_SIZE];
+    struct sockaddr_in src_addr;
+    socklen_t src_addr_len = sizeof(src_addr);
     
     ESP_LOGI(TAG, "sACN receiver task started");
     
     while (sacn_state.running) {
         // Receive packet
-        int len = recvfrom(sacn_state.socket_fd, buffer, sizeof(buffer), 0, NULL, NULL);
+        int len = recvfrom(sacn_state.socket_fd, buffer, sizeof(buffer), 0,
+                          (struct sockaddr *)&src_addr, &src_addr_len);
         
         if (len < 0) {
             if (errno == EAGAIN || errno == EWOULDBLOCK) {
@@ -529,7 +534,7 @@ static void sacn_receive_task(void *arg)
         sacn_state.stats.packets_received++;
         
         // Process packet
-        esp_err_t ret = process_sacn_packet(buffer, len);
+        esp_err_t ret = process_sacn_packet(buffer, len, &src_addr);
         if (ret != ESP_OK) {
             sacn_state.stats.invalid_packets++;
         }
@@ -542,7 +547,8 @@ static void sacn_receive_task(void *arg)
 /**
  * @brief Process received sACN packet
  */
-static esp_err_t process_sacn_packet(const uint8_t *buffer, size_t length)
+static esp_err_t process_sacn_packet(const uint8_t *buffer, size_t length,
+                                     const struct sockaddr_in *src_addr)
 {
     // Validate header
     if (!validate_sacn_header(buffer, length)) {
@@ -553,13 +559,14 @@ static esp_err_t process_sacn_packet(const uint8_t *buffer, size_t length)
     
     // Process data packet
     sacn_state.stats.data_packets++;
-    return process_sacn_data(packet);
+    return process_sacn_data(packet, src_addr);
 }
 
 /**
  * @brief Process sACN data packet
  */
-static esp_err_t process_sacn_data(const sacn_packet_t *packet)
+static esp_err_t process_sacn_data(const sacn_packet_t *packet,
+                                   const struct sockaddr_in *src_addr)
 {
     // Extract universe (big endian / network byte order)
     uint16_t universe = ntohs(packet->framing.universe);
@@ -593,10 +600,13 @@ static esp_err_t process_sacn_data(const sacn_packet_t *packet)
     strncpy(source_name, packet->framing.source_name, 64);
     source_name[64] = '\0';
     
+    // Extract source IP address
+    uint32_t source_ip = src_addr->sin_addr.s_addr;
+    
     // Call callback if registered
     if (sacn_state.dmx_callback) {
         sacn_state.dmx_callback(universe, packet->dmp.data, priority, sequence,
-                               is_preview, source_name, 
+                               is_preview, source_name, source_ip,
                                sacn_state.dmx_callback_user_data);
     }
     

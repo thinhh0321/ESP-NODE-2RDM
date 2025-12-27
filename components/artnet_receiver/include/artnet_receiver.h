@@ -121,11 +121,12 @@ typedef struct {
  * @param data DMX data (512 channels)
  * @param length Data length (actual length, 2-512)
  * @param sequence Sequence number
+ * @param source_ip Source IP address (network byte order)
  * @param user_data User data pointer
  */
 typedef void (*artnet_dmx_callback_t)(uint16_t universe, const uint8_t *data, 
-                                       uint16_t length, uint8_t sequence, 
-                                       void *user_data);
+                                       uint16_t length, uint8_t sequence,
+                                       uint32_t source_ip, void *user_data);
 
 /**
  * @brief Initialize Art-Net receiver
