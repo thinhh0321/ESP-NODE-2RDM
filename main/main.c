@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <inttypes.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "esp_log.h"
@@ -60,7 +61,7 @@ static void on_artnet_dmx(uint16_t universe, const uint8_t *data,
                           uint16_t length, uint8_t sequence, uint32_t source_ip,
                           void *user_data)
 {
-    ESP_LOGD(TAG, "Art-Net DMX received: Universe=%d, Length=%d, Seq=%d, SourceIP=0x%08lx",
+    ESP_LOGD(TAG, "Art-Net DMX received: Universe=%d, Length=%d, Seq=%d, SourceIP=0x%08" PRIx32,
              universe, length, sequence, source_ip);
     
     // Route to appropriate DMX port based on universe
@@ -81,7 +82,7 @@ static void on_sacn_dmx(uint16_t universe, const uint8_t *data,
                         bool preview, const char *source_name,
                         uint32_t source_ip, void *user_data)
 {
-    ESP_LOGD(TAG, "sACN DMX received: Universe=%d, Priority=%d, Seq=%d, Preview=%d, Source=%s, SourceIP=0x%08lx",
+    ESP_LOGD(TAG, "sACN DMX received: Universe=%d, Priority=%d, Seq=%d, Preview=%d, Source=%s, SourceIP=0x%08" PRIx32,
              universe, priority, sequence, preview, source_name, source_ip);
     
     // Skip preview data

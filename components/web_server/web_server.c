@@ -47,6 +47,15 @@ static const char *TAG = "web_server";
 // Maximum WebSocket clients
 #define MAX_WS_CLIENTS 4
 
+// DMX constants for validation
+#define DMX_MAX_PORTS 2
+#define DMX_MAX_CHANNELS 512
+#define DMX_MAX_VALUE 255
+
+// WebSocket test source identifiers
+#define WS_TEST_UNIVERSE 999        // Special universe for WebSocket testing
+#define WS_TEST_SOURCE_IP 0xFFFFFFFF // Special source IP for WebSocket
+
 /**
  * @brief Server state
  */
@@ -486,7 +495,12 @@ static esp_err_t api_config_post_handler(httpd_req_t *req)
     
     // Import configuration from JSON
     // This validates and updates the config structure
-    esp_err_t err = config_from_json(cJSON_PrintUnformatted(json));
+    char *json_str = cJSON_PrintUnformatted(json);
+    esp_err_t err = ESP_FAIL;
+    if (json_str) {
+        err = config_from_json(json_str);
+        free(json_str);
+    }
     cJSON_Delete(json);
     
     if (err != ESP_OK) {
@@ -800,15 +814,20 @@ static esp_err_t ws_handler(httpd_req_t *req)
                                 int channel = channel_obj->valueint;
                                 int value = value_obj->valueint;
                                 
-                                if (port >= 1 && port <= 2 && channel >= 1 && channel <= 512 && value >= 0 && value <= 255) {
+                                if (port >= 1 && port <= DMX_MAX_PORTS && 
+                                    channel >= 1 && channel <= DMX_MAX_CHANNELS && 
+                                    value >= 0 && value <= DMX_MAX_VALUE) {
+                                    
                                     ESP_LOGI(TAG, "WebSocket command: Set DMX port %d ch %d = %d", port, channel, value);
                                     
-                                    // Create DMX data with single channel set
+                                    // Note: This sets only the specified channel, other channels are 0
+                                    // For testing purposes, this is expected behavior to test individual channels
+                                    // For full DMX control, use the merge engine with proper sources
                                     uint8_t dmx_data[512] = {0};
                                     dmx_data[channel - 1] = (uint8_t)value;
                                     
-                                    // Send via merge engine (using special WebSocket source IP)
-                                    merge_engine_push_artnet(port, 999, dmx_data, 0, 0xFFFFFFFF);
+                                    // Send via merge engine (using special WebSocket source identifiers)
+                                    merge_engine_push_artnet(port, WS_TEST_UNIVERSE, dmx_data, 0, WS_TEST_SOURCE_IP);
                                     
                                     // Send success response
                                     cJSON *response = cJSON_CreateObject();
@@ -833,7 +852,7 @@ static esp_err_t ws_handler(httpd_req_t *req)
                             cJSON *port_obj = cJSON_GetObjectItem(cmd, "port");
                             if (port_obj && cJSON_IsNumber(port_obj)) {
                                 int port = port_obj->valueint;
-                                if (port >= 1 && port <= 2) {
+                                if (port >= 1 && port <= DMX_MAX_PORTS) {
                                     ESP_LOGI(TAG, "WebSocket command: Blackout port %d", port);
                                     merge_engine_blackout(port);
                                     
