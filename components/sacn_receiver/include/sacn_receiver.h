@@ -113,12 +113,13 @@ typedef struct {
  * @param sequence Sequence number
  * @param preview true if preview data
  * @param source_name Source name (null terminated)
+ * @param source_ip Source IP address (network byte order)
  * @param user_data User data pointer
  */
 typedef void (*sacn_dmx_callback_t)(uint16_t universe, const uint8_t *data,
                                     uint8_t priority, uint8_t sequence,
                                     bool preview, const char *source_name,
-                                    void *user_data);
+                                    uint32_t source_ip, void *user_data);
 
 /**
  * @brief Initialize sACN receiver

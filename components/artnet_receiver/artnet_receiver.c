@@ -71,7 +71,8 @@ static struct {
 static void artnet_receive_task(void *arg);
 static esp_err_t process_artnet_packet(const uint8_t *buffer, size_t length, 
                                        const struct sockaddr_in *src_addr);
-static esp_err_t process_artdmx(const artnet_dmx_packet_t *packet);
+static esp_err_t process_artdmx(const artnet_dmx_packet_t *packet,
+                                const struct sockaddr_in *src_addr);
 static esp_err_t process_artpoll(const artnet_poll_packet_t *packet, 
                                  const struct sockaddr_in *src_addr);
 static esp_err_t send_artpoll_reply(const struct sockaddr_in *dest_addr);
@@ -397,7 +398,7 @@ static esp_err_t process_artnet_packet(const uint8_t *buffer, size_t length,
         case ARTNET_OP_DMX:
             if (length >= sizeof(artnet_dmx_packet_t)) {
                 artnet_state.stats.dmx_packets++;
-                return process_artdmx((const artnet_dmx_packet_t *)buffer);
+                return process_artdmx((const artnet_dmx_packet_t *)buffer, src_addr);
             }
             break;
             
@@ -419,7 +420,8 @@ static esp_err_t process_artnet_packet(const uint8_t *buffer, size_t length,
 /**
  * @brief Process ArtDmx packet
  */
-static esp_err_t process_artdmx(const artnet_dmx_packet_t *packet)
+static esp_err_t process_artdmx(const artnet_dmx_packet_t *packet,
+                                const struct sockaddr_in *src_addr)
 {
     // Extract universe (little endian)
     uint16_t universe = packet->universe;
@@ -442,10 +444,13 @@ static esp_err_t process_artdmx(const artnet_dmx_packet_t *packet)
         artnet_state.last_sequence[universe] = sequence;
     }
     
+    // Extract source IP address
+    uint32_t source_ip = src_addr->sin_addr.s_addr;
+    
     // Call callback if registered
     if (artnet_state.dmx_callback) {
         artnet_state.dmx_callback(universe, packet->data, length, sequence,
-                                  artnet_state.dmx_callback_user_data);
+                                  source_ip, artnet_state.dmx_callback_user_data);
     }
     
     return ESP_OK;
