@@ -395,7 +395,7 @@ ESP-NODE-2RDM là thiết bị điều khiển ánh sáng chuyên nghiệp, chuy
 - Studio truyền hình
 - Sản xuất kịch nghệ
 
-### 🎯 Tính năng chính
+### ✨ Tính năng chính
 
 #### Giao thức mạng
 - ✅ **Art-Net v4** - Giao thức UDP chuẩn công nghiệp (cổng 6454)
@@ -588,8 +588,6 @@ ESP-NODE-2RDM là thiết bị điều khiển ánh sáng chuyên nghiệp, chuy
    - Gán universe cho mỗi cổng
    - Đặt ưu tiên giao thức và chế độ merge
 5. **Lưu cấu hình** - Cài đặt được lưu giữ qua các lần khởi động lại
-
-### 📚 Tài liệu dự án
 
 ### 📚 Tài liệu dự án
 
