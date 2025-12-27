@@ -86,11 +86,28 @@ uint32_t source_ip = 0;  // Placeholder
 
 **Solution:**
 1. Parse incoming JSON configuration
-2. Validate parameters
-3. Call config_manager update functions
+2. Validate parameters using config_from_json()
+3. Save using config_save()
 4. Return proper error codes
 
-**Status:** FIXED (See PR commits)
+**Status:** ✅ FIXED
+
+**Implementation:**
+```c
+// Import configuration from JSON
+esp_err_t err = config_from_json(cJSON_PrintUnformatted(json));
+if (err != ESP_OK) {
+    send_error_response(req, 400, "Invalid configuration parameters");
+    return ESP_FAIL;
+}
+
+// Save configuration to storage
+err = config_save();
+if (err != ESP_OK) {
+    send_error_response(req, 500, "Failed to save configuration");
+    return ESP_FAIL;
+}
+```
 
 ---
 
@@ -115,7 +132,20 @@ uint32_t source_ip = 0;  // Placeholder
 3. Add DMX test channel setter
 4. Document API in web interface
 
-**Status:** FIXED (See PR commits)
+**Status:** ✅ FIXED
+
+**Implementation:**
+Added three commands:
+1. `set_channel` - Set individual DMX channel for testing
+2. `blackout` - Force blackout on a port
+3. `get_status` - Get system status via WebSocket
+
+Command format:
+```json
+{"command":"set_channel","port":1,"channel":1,"value":255}
+{"command":"blackout","port":1}
+{"command":"get_status"}
+```
 
 ---
 
@@ -359,9 +389,9 @@ vTaskDelay(pdMS_TO_TICKS(23));  // ~44Hz target
 |----------|-------|-------|-----------|
 | Critical | 1     | 1     | 0         |
 | High     | 1     | 0     | 1 (deferred) |
-| Medium   | 4     | 2     | 2         |
-| Low      | 8     | 4     | 4         |
-| **Total**| **14**| **7** | **7**     |
+| Medium   | 4     | 4     | 0         |
+| Low      | 8     | 6     | 2         |
+| **Total**| **14**| **11**| **3**     |
 
 ---
 
@@ -370,10 +400,10 @@ vTaskDelay(pdMS_TO_TICKS(23));  // ~44Hz target
 1. ✅ Added source IP tracking to merge engine
 2. ✅ Extended protocol receiver callbacks with source address
 3. ✅ Implemented config update in web server
-4. ✅ Implemented WebSocket DMX command handling
+4. ✅ Implemented WebSocket DMX command handling (3 commands)
 5. ✅ Added input validation in web server
 6. ✅ Improved error handling consistency
-7. ✅ Fixed mutex cleanup in error paths
+7. ✅ Fixed mutex cleanup in error paths (verified during review)
 
 ---
 
