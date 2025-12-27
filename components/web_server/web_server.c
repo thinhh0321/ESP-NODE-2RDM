@@ -18,6 +18,7 @@
 #include "web_server.h"
 #include "esp_log.h"
 #include "esp_http_server.h"
+#include "esp_timer.h"
 #include "cJSON.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
@@ -483,16 +484,30 @@ static esp_err_t api_config_post_handler(httpd_req_t *req)
         return ESP_FAIL;
     }
     
-    // TODO: Apply configuration changes
-    // This would update config_manager with new values
-    
+    // Import configuration from JSON
+    // This validates and updates the config structure
+    esp_err_t err = config_from_json(cJSON_PrintUnformatted(json));
     cJSON_Delete(json);
+    
+    if (err != ESP_OK) {
+        send_error_response(req, 400, "Invalid configuration parameters");
+        return ESP_FAIL;
+    }
+    
+    // Save configuration to storage
+    err = config_save();
+    if (err != ESP_OK) {
+        send_error_response(req, 500, "Failed to save configuration");
+        return ESP_FAIL;
+    }
     
     cJSON *response = cJSON_CreateObject();
     cJSON_AddStringToObject(response, "status", "ok");
-    cJSON_AddStringToObject(response, "message", "Configuration updated (restart required)");
+    cJSON_AddStringToObject(response, "message", "Configuration updated successfully (restart required for some changes)");
     send_json_response(req, response, 200);
     cJSON_Delete(response);
+    
+    ESP_LOGI(TAG, "Configuration updated via API");
     
     return ESP_OK;
 }
@@ -760,10 +775,109 @@ static esp_err_t ws_handler(httpd_req_t *req)
             ret = httpd_ws_recv_frame(req, &ws_pkt, ws_pkt.len);
             if (ret == ESP_OK) {
                 buf[ws_pkt.len] = '\0';
-                ESP_LOGI(TAG, "WebSocket received: %s", (char*)buf);
+                ESP_LOGD(TAG, "WebSocket received: %s", (char*)buf);
                 
-                // Parse and handle command
-                // TODO: Handle DMX test commands from client
+                // Parse command JSON
+                cJSON *cmd = cJSON_Parse((char*)buf);
+                if (cmd) {
+                    // Get command type
+                    cJSON *cmd_type = cJSON_GetObjectItem(cmd, "command");
+                    
+                    if (cmd_type && cJSON_IsString(cmd_type)) {
+                        const char *command = cmd_type->valuestring;
+                        
+                        if (strcmp(command, "set_channel") == 0) {
+                            // Set single DMX channel
+                            // JSON format: {"command":"set_channel","port":1,"channel":1,"value":255}
+                            cJSON *port_obj = cJSON_GetObjectItem(cmd, "port");
+                            cJSON *channel_obj = cJSON_GetObjectItem(cmd, "channel");
+                            cJSON *value_obj = cJSON_GetObjectItem(cmd, "value");
+                            
+                            if (port_obj && channel_obj && value_obj &&
+                                cJSON_IsNumber(port_obj) && cJSON_IsNumber(channel_obj) && cJSON_IsNumber(value_obj)) {
+                                
+                                int port = port_obj->valueint;
+                                int channel = channel_obj->valueint;
+                                int value = value_obj->valueint;
+                                
+                                if (port >= 1 && port <= 2 && channel >= 1 && channel <= 512 && value >= 0 && value <= 255) {
+                                    ESP_LOGI(TAG, "WebSocket command: Set DMX port %d ch %d = %d", port, channel, value);
+                                    
+                                    // Create DMX data with single channel set
+                                    uint8_t dmx_data[512] = {0};
+                                    dmx_data[channel - 1] = (uint8_t)value;
+                                    
+                                    // Send via merge engine (using special WebSocket source IP)
+                                    merge_engine_push_artnet(port, 999, dmx_data, 0, 0xFFFFFFFF);
+                                    
+                                    // Send success response
+                                    cJSON *response = cJSON_CreateObject();
+                                    cJSON_AddStringToObject(response, "status", "ok");
+                                    cJSON_AddStringToObject(response, "command", "set_channel");
+                                    char *resp_str = cJSON_PrintUnformatted(response);
+                                    if (resp_str) {
+                                        ws_pkt.len = strlen(resp_str);
+                                        ws_pkt.payload = (uint8_t*)resp_str;
+                                        httpd_ws_send_frame(req, &ws_pkt);
+                                        free(resp_str);
+                                    }
+                                    cJSON_Delete(response);
+                                } else {
+                                    ESP_LOGW(TAG, "WebSocket: Invalid parameters");
+                                }
+                            }
+                        }
+                        else if (strcmp(command, "blackout") == 0) {
+                            // Blackout a port
+                            // JSON format: {"command":"blackout","port":1}
+                            cJSON *port_obj = cJSON_GetObjectItem(cmd, "port");
+                            if (port_obj && cJSON_IsNumber(port_obj)) {
+                                int port = port_obj->valueint;
+                                if (port >= 1 && port <= 2) {
+                                    ESP_LOGI(TAG, "WebSocket command: Blackout port %d", port);
+                                    merge_engine_blackout(port);
+                                    
+                                    cJSON *response = cJSON_CreateObject();
+                                    cJSON_AddStringToObject(response, "status", "ok");
+                                    cJSON_AddStringToObject(response, "command", "blackout");
+                                    char *resp_str = cJSON_PrintUnformatted(response);
+                                    if (resp_str) {
+                                        ws_pkt.len = strlen(resp_str);
+                                        ws_pkt.payload = (uint8_t*)resp_str;
+                                        httpd_ws_send_frame(req, &ws_pkt);
+                                        free(resp_str);
+                                    }
+                                    cJSON_Delete(response);
+                                }
+                            }
+                        }
+                        else if (strcmp(command, "get_status") == 0) {
+                            // Get system status
+                            // JSON format: {"command":"get_status"}
+                            ESP_LOGD(TAG, "WebSocket command: Get status");
+                            
+                            cJSON *response = cJSON_CreateObject();
+                            cJSON_AddStringToObject(response, "status", "ok");
+                            cJSON_AddStringToObject(response, "command", "get_status");
+                            cJSON_AddNumberToObject(response, "uptime", (double)esp_timer_get_time() / 1000000);
+                            cJSON_AddNumberToObject(response, "free_heap", esp_get_free_heap_size());
+                            
+                            char *resp_str = cJSON_PrintUnformatted(response);
+                            if (resp_str) {
+                                ws_pkt.len = strlen(resp_str);
+                                ws_pkt.payload = (uint8_t*)resp_str;
+                                httpd_ws_send_frame(req, &ws_pkt);
+                                free(resp_str);
+                            }
+                            cJSON_Delete(response);
+                        }
+                        else {
+                            ESP_LOGW(TAG, "WebSocket: Unknown command: %s", command);
+                        }
+                    }
+                    
+                    cJSON_Delete(cmd);
+                }
             }
             free(buf);
         }
