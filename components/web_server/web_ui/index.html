@@ -1,0 +1,1305 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ESP-NODE-2RDM Controller</title>
+    <style>
+/* === CSS EMBEDDED === */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+:root {
+    --bg-primary: #0f172a;
+    --bg-secondary: #1e293b;
+    --bg-tertiary: #334155;
+    --bg-card: #1e293b;
+    --border-color: #334155;
+    --text-primary: #f1f5f9;
+    --text-secondary: #94a3b8;
+    --text-muted: #64748b;
+    --accent-primary: #3b82f6;
+    --accent-hover: #2563eb;
+    --success: #10b981;
+    --warning: #f59e0b;
+    --danger: #ef4444;
+    --info: #06b6d4;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    line-height: 1.6;
+    overflow-x: hidden;
+}
+
+.app {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Header */
+.header {
+    background: var(--bg-secondary);
+    border-bottom: 1px solid var(--border-color);
+    padding: 1rem 2rem;
+}
+
+.header-content {
+    max-width: 1400px;
+    margin: 0 auto;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 1rem;
+}
+
+.header h1 {
+    font-size: 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.logo {
+    width: 2rem;
+    height: 2rem;
+    color: var(--accent-primary);
+}
+
+.connection-status {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.875rem;
+}
+
+.status-indicator {
+    width: 0.75rem;
+    height: 0.75rem;
+    border-radius: 50%;
+    background: var(--text-muted);
+    animation: pulse 2s infinite;
+}
+
+.status-indicator.connected {
+    background: var(--success);
+}
+
+.status-indicator.disconnected {
+    background: var(--danger);
+    animation: none;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+}
+
+/* Tabs Navigation */
+.tabs {
+    background: var(--bg-secondary);
+    border-bottom: 1px solid var(--border-color);
+    padding: 0 2rem;
+    overflow-x: auto;
+    white-space: nowrap;
+}
+
+.tabs::-webkit-scrollbar {
+    height: 4px;
+}
+
+.tabs::-webkit-scrollbar-track {
+    background: var(--bg-secondary);
+}
+
+.tabs::-webkit-scrollbar-thumb {
+    background: var(--border-color);
+    border-radius: 2px;
+}
+
+.tab {
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    padding: 1rem 1.5rem;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    transition: all 0.2s;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.875rem;
+}
+
+.tab svg {
+    width: 1.25rem;
+    height: 1.25rem;
+}
+
+.tab:hover {
+    color: var(--text-primary);
+    background: var(--bg-tertiary);
+}
+
+.tab.active {
+    color: var(--accent-primary);
+    border-bottom-color: var(--accent-primary);
+}
+
+/* Content Area */
+.content {
+    flex: 1;
+    padding: 2rem;
+    max-width: 1400px;
+    width: 100%;
+    margin: 0 auto;
+}
+
+.tab-content {
+    display: none;
+    animation: fadeIn 0.3s;
+}
+
+.tab-content.active {
+    display: block;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* Grid Layout */
+.grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 1.5rem;
+}
+
+.grid-2 {
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+}
+
+/* Cards */
+.card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 0.5rem;
+    padding: 1.5rem;
+    transition: transform 0.2s;
+}
+
+.card:hover {
+    transform: translateY(-2px);
+}
+
+.card.wide {
+    grid-column: 1 / -1;
+}
+
+.card h2 {
+    font-size: 1.25rem;
+    margin-bottom: 1rem;
+    color: var(--text-primary);
+}
+
+.card h3 {
+    font-size: 1rem;
+    margin-bottom: 0.75rem;
+    color: var(--text-secondary);
+}
+
+.card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+    flex-wrap: wrap;
+    gap: 1rem;
+}
+
+/* Stats */
+.stat-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.75rem 0;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.stat-row:last-child {
+    border-bottom: none;
+}
+
+.stat-label {
+    color: var(--text-secondary);
+    font-size: 0.875rem;
+}
+
+.stat-value {
+    color: var(--text-primary);
+    font-weight: 600;
+    font-size: 0.875rem;
+}
+
+.proto-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1.5rem;
+}
+
+.proto-stat {
+    padding: 1rem;
+    background: var(--bg-tertiary);
+    border-radius: 0.375rem;
+}
+
+/* Forms */
+.form-group {
+    margin-bottom: 1.25rem;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 0.5rem;
+    color: var(--text-secondary);
+    font-size: 0.875rem;
+    font-weight: 500;
+}
+
+.form-group input[type="text"],
+.form-group input[type="password"],
+.form-group input[type="number"],
+.form-group select {
+    width: 100%;
+    padding: 0.75rem;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-color);
+    border-radius: 0.375rem;
+    color: var(--text-primary);
+    font-size: 0.875rem;
+    transition: border-color 0.2s;
+}
+
+.form-group input[type="text"]:focus,
+.form-group input[type="password"]:focus,
+.form-group input[type="number"]:focus,
+.form-group select:focus {
+    outline: none;
+    border-color: var(--accent-primary);
+}
+
+.form-group input[type="checkbox"] {
+    margin-right: 0.5rem;
+}
+
+.form-group input[type="file"] {
+    width: 100%;
+    padding: 0.75rem;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-color);
+    border-radius: 0.375rem;
+    color: var(--text-primary);
+    font-size: 0.875rem;
+}
+
+.help-text {
+    display: block;
+    margin-top: 0.375rem;
+    color: var(--text-muted);
+    font-size: 0.75rem;
+}
+
+.form-section {
+    margin-top: 1.5rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--border-color);
+}
+
+.form-actions {
+    display: flex;
+    gap: 0.75rem;
+    margin-top: 1.5rem;
+    flex-wrap: wrap;
+}
+
+/* Buttons */
+.btn {
+    padding: 0.75rem 1.5rem;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-color);
+    border-radius: 0.375rem;
+    color: var(--text-primary);
+    font-size: 0.875rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.btn:hover {
+    background: var(--border-color);
+}
+
+.btn svg {
+    width: 1rem;
+    height: 1rem;
+}
+
+.btn-primary {
+    background: var(--accent-primary);
+    border-color: var(--accent-primary);
+}
+
+.btn-primary:hover {
+    background: var(--accent-hover);
+    border-color: var(--accent-hover);
+}
+
+.btn-success {
+    background: var(--success);
+    border-color: var(--success);
+}
+
+.btn-warning {
+    background: var(--warning);
+    border-color: var(--warning);
+    color: #000;
+}
+
+.btn-danger {
+    background: var(--danger);
+    border-color: var(--danger);
+}
+
+.action-buttons {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+/* Table */
+.table-responsive {
+    overflow-x: auto;
+    margin-top: 1rem;
+}
+
+.data-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.data-table th,
+.data-table td {
+    padding: 0.75rem;
+    text-align: left;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.data-table th {
+    background: var(--bg-tertiary);
+    color: var(--text-secondary);
+    font-weight: 600;
+    font-size: 0.875rem;
+}
+
+.data-table td {
+    color: var(--text-primary);
+    font-size: 0.875rem;
+}
+
+.data-table .no-data {
+    text-align: center;
+    color: var(--text-muted);
+    padding: 2rem;
+}
+
+/* Status Message */
+.status-message {
+    padding: 1rem;
+    background: var(--bg-tertiary);
+    border-radius: 0.375rem;
+    margin-bottom: 1rem;
+    color: var(--text-secondary);
+    font-size: 0.875rem;
+}
+
+/* Alert */
+.alert {
+    padding: 1rem;
+    border-radius: 0.375rem;
+    margin-top: 1rem;
+    font-size: 0.875rem;
+}
+
+.alert-warning {
+    background: rgba(245, 158, 11, 0.1);
+    border: 1px solid var(--warning);
+    color: var(--warning);
+}
+
+/* Progress Bar */
+.progress {
+    width: 100%;
+    height: 2.5rem;
+    background: var(--bg-tertiary);
+    border-radius: 0.375rem;
+    overflow: hidden;
+    position: relative;
+    margin: 1rem 0;
+}
+
+.progress-bar {
+    height: 100%;
+    background: var(--accent-primary);
+    transition: width 0.3s;
+    width: 0%;
+}
+
+.progress-text {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-weight: 600;
+    font-size: 0.875rem;
+}
+
+/* DMX Channel Bars */
+.dmx-channels {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(60px, 1fr));
+    gap: 0.75rem;
+    margin-top: 1rem;
+}
+
+.dmx-channel {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.dmx-channel-label {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    font-weight: 600;
+}
+
+.dmx-bar-container {
+    width: 100%;
+    height: 120px;
+    background: var(--bg-tertiary);
+    border-radius: 0.375rem;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    overflow: hidden;
+    border: 1px solid var(--border-color);
+}
+
+.dmx-bar {
+    width: 100%;
+    background: linear-gradient(to top, #10b981, #3b82f6, #8b5cf6);
+    transition: height 0.2s ease-out;
+    height: 0%;
+    position: relative;
+}
+
+.dmx-bar.high {
+    background: linear-gradient(to top, #ef4444, #f59e0b);
+}
+
+.dmx-value {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+}
+
+.dmx-percentage {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    font-weight: 500;
+    text-align: center;
+    margin-top: 0.25rem;
+}
+
+/* Universe Signal Indicator */
+.universe-signal {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 0.5rem;
+    padding: 0.5rem;
+    background: var(--bg-tertiary);
+    border-radius: 0.375rem;
+}
+
+.signal-bar {
+    flex: 1;
+    height: 6px;
+    background: var(--bg-primary);
+    border-radius: 3px;
+    overflow: hidden;
+    position: relative;
+}
+
+.signal-fill {
+    height: 100%;
+    background: var(--success);
+    transition: width 0.3s ease;
+    width: 0%;
+}
+
+.signal-fill.medium {
+    background: var(--warning);
+}
+
+.signal-fill.weak {
+    background: var(--danger);
+}
+
+.signal-label {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    min-width: 80px;
+}
+
+/* Toast Notifications */
+.toast-container {
+    position: fixed;
+    top: 1rem;
+    right: 1rem;
+    z-index: 1000;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.toast {
+    min-width: 300px;
+    padding: 1rem;
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 0.5rem;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+    animation: slideIn 0.3s;
+}
+
+@keyframes slideIn {
+    from {
+        transform: translateX(400px);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+.toast.success {
+    border-left: 4px solid var(--success);
+}
+
+.toast.error {
+    border-left: 4px solid var(--danger);
+}
+
+.toast.warning {
+    border-left: 4px solid var(--warning);
+}
+
+.toast.info {
+    border-left: 4px solid var(--info);
+}
+
+.toast-header {
+    font-weight: 600;
+    margin-bottom: 0.25rem;
+}
+
+.toast-body {
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .header {
+        padding: 1rem;
+    }
+
+    .header h1 {
+        font-size: 1.25rem;
+    }
+
+    .tabs {
+        padding: 0 0.5rem;
+    }
+
+    .tab {
+        padding: 0.75rem 1rem;
+        font-size: 0.8125rem;
+    }
+
+    .content {
+        padding: 1rem;
+    }
+
+    .grid {
+        grid-template-columns: 1fr;
+    }
+
+    .form-actions {
+        flex-direction: column;
+    }
+
+    .form-actions .btn {
+        width: 100%;
+        justify-content: center;
+    }
+
+    .toast-container {
+        left: 1rem;
+        right: 1rem;
+    }
+
+    .toast {
+        min-width: auto;
+        width: 100%;
+    }
+}
+    </style>
+</head>
+<body>
+    <div class="app">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-content">
+                <h1>
+                    <svg class="logo" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>
+                    </svg>
+                    ESP-NODE-2RDM
+                </h1>
+                <div class="connection-status">
+                    <span class="status-indicator" id="connectionStatus"></span>
+                    <span id="connectionText">Connecting...</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- Navigation Tabs -->
+        <nav class="tabs">
+            <button class="tab active" data-tab="dashboard">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="3" y="3" width="7" height="7"/>
+                    <rect x="14" y="3" width="7" height="7"/>
+                    <rect x="14" y="14" width="7" height="7"/>
+                    <rect x="3" y="14" width="7" height="7"/>
+                </svg>
+                Dashboard
+            </button>
+            <button class="tab" data-tab="network">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="2"/>
+                    <path d="M16.24 7.76a6 6 0 0 1 0 8.49m-8.48-.01a6 6 0 0 1 0-8.49m11.31-2.82a10 10 0 0 1 0 14.14m-14.14 0a10 10 0 0 1 0-14.14"/>
+                </svg>
+                Network
+            </button>
+            <button class="tab" data-tab="dmx">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                    <polyline points="14 2 14 8 20 8"/>
+                    <line x1="16" y1="13" x2="8" y2="13"/>
+                    <line x1="16" y1="17" x2="8" y2="17"/>
+                    <polyline points="10 9 9 9 8 9"/>
+                </svg>
+                DMX/RDM
+            </button>
+            <button class="tab" data-tab="rdm">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+                    <polyline points="3.27 6.96 12 12.01 20.73 6.96"/>
+                    <line x1="12" y1="22.08" x2="12" y2="12"/>
+                </svg>
+                RDM Discovery
+            </button>
+            <button class="tab" data-tab="system">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="3"/>
+                    <path d="M12 1v6m0 6v6M5.64 5.64l4.24 4.24m4.24 4.24l4.24 4.24M1 12h6m6 0h6M5.64 18.36l4.24-4.24m4.24-4.24l4.24-4.24"/>
+                </svg>
+                System
+            </button>
+        </nav>
+
+        <!-- Tab Content -->
+        <main class="content">
+            <!-- Dashboard Tab -->
+            <div class="tab-content active" id="dashboard">
+                <div class="grid">
+                    <!-- System Status Card -->
+                    <div class="card">
+                        <h2>System Status</h2>
+                        <div class="stat-row">
+                            <span class="stat-label">Uptime:</span>
+                            <span class="stat-value" id="uptime">--</span>
+                        </div>
+                        <div class="stat-row">
+                            <span class="stat-label">Free RAM:</span>
+                            <span class="stat-value" id="freeHeap">--</span>
+                        </div>
+                        <div class="stat-row">
+                            <span class="stat-label">Firmware:</span>
+                            <span class="stat-value" id="firmware">--</span>
+                        </div>
+                        <div class="stat-row">
+                            <span class="stat-label">Hardware:</span>
+                            <span class="stat-value" id="hardware">--</span>
+                        </div>
+                    </div>
+
+                    <!-- Network Status Card -->
+                    <div class="card">
+                        <h2>Network Status</h2>
+                        <div class="stat-row">
+                            <span class="stat-label">Mode:</span>
+                            <span class="stat-value" id="netMode">--</span>
+                        </div>
+                        <div class="stat-row">
+                            <span class="stat-label">IP Address:</span>
+                            <span class="stat-value" id="ipAddress">--</span>
+                        </div>
+                        <div class="stat-row">
+                            <span class="stat-label">Status:</span>
+                            <span class="stat-value" id="netStatus">--</span>
+                        </div>
+                    </div>
+
+                    <!-- Port 1 Status -->
+                    <div class="card">
+                        <h2>Port 1 (DMX Out)</h2>
+                        <div class="stat-row">
+                            <span class="stat-label">Mode:</span>
+                            <span class="stat-value" id="port1Mode">--</span>
+                        </div>
+                        <div class="stat-row">
+                            <span class="stat-label">Universe:</span>
+                            <span class="stat-value" id="port1Universe">--</span>
+                        </div>
+                        <div class="stat-row">
+                            <span class="stat-label">Frames Sent:</span>
+                            <span class="stat-value" id="port1Frames">--</span>
+                        </div>
+                        <div class="stat-row">
+                            <span class="stat-label">Refresh Rate:</span>
+                            <span class="stat-value" id="port1Rate">-- Hz</span>
+                        </div>
+                        <button class="btn btn-warning" onclick="app.blackoutPort(1)">Blackout</button>
+                    </div>
+
+                    <!-- Port 2 Status -->
+                    <div class="card">
+                        <h2>Port 2 (DMX Out)</h2>
+                        <div class="stat-row">
+                            <span class="stat-label">Mode:</span>
+                            <span class="stat-value" id="port2Mode">--</span>
+                        </div>
+                        <div class="stat-row">
+                            <span class="stat-label">Universe:</span>
+                            <span class="stat-value" id="port2Universe">--</span>
+                        </div>
+                        <div class="stat-row">
+                            <span class="stat-label">Frames Sent:</span>
+                            <span class="stat-value" id="port2Frames">--</span>
+                        </div>
+                        <div class="stat-row">
+                            <span class="stat-label">Refresh Rate:</span>
+                            <span class="stat-value" id="port2Rate">-- Hz</span>
+                        </div>
+                        <button class="btn btn-warning" onclick="app.blackoutPort(2)">Blackout</button>
+                    </div>
+
+                    <!-- Protocol Statistics -->
+                    <div class="card wide">
+                        <h2>Protocol Statistics</h2>
+                        <div class="proto-stats">
+                            <div class="proto-stat">
+                                <h3>Art-Net</h3>
+                                <div class="stat-row">
+                                    <span class="stat-label">Total Packets:</span>
+                                    <span class="stat-value" id="artnetPackets">--</span>
+                                </div>
+                                <div class="stat-row">
+                                    <span class="stat-label">DMX Packets:</span>
+                                    <span class="stat-value" id="artnetDmx">--</span>
+                                </div>
+                            </div>
+                            <div class="proto-stat">
+                                <h3>sACN</h3>
+                                <div class="stat-row">
+                                    <span class="stat-label">Total Packets:</span>
+                                    <span class="stat-value" id="sacnPackets">--</span>
+                                </div>
+                                <div class="stat-row">
+                                    <span class="stat-label">Data Packets:</span>
+                                    <span class="stat-value" id="sacnData">--</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- DMX Channel Visualization - Port 1 -->
+                    <div class="card wide">
+                        <h2>DMX Channel Levels - Port 1 (Universe <span id="dmxPort1Universe">0</span>)</h2>
+                        <div class="universe-signal">
+                            <span class="signal-label">Signal Strength:</span>
+                            <div class="signal-bar">
+                                <div class="signal-fill" id="port1SignalFill" style="width: 0%"></div>
+                            </div>
+                            <span class="signal-label" id="port1SignalText">0%</span>
+                        </div>
+                        <div class="dmx-channels">
+                            <div class="dmx-channel">
+                                <span class="dmx-channel-label">CH 1</span>
+                                <div class="dmx-bar-container">
+                                    <div class="dmx-bar" id="dmx1-ch1" style="height: 0%">
+                                        <span class="dmx-value">0</span>
+                                    </div>
+                                </div>
+                                <span class="dmx-percentage" id="dmx1-ch1-pct">0%</span>
+                            </div>
+                            <div class="dmx-channel">
+                                <span class="dmx-channel-label">CH 2</span>
+                                <div class="dmx-bar-container">
+                                    <div class="dmx-bar" id="dmx1-ch2" style="height: 0%">
+                                        <span class="dmx-value">0</span>
+                                    </div>
+                                </div>
+                                <span class="dmx-percentage" id="dmx1-ch2-pct">0%</span>
+                            </div>
+                            <div class="dmx-channel">
+                                <span class="dmx-channel-label">CH 3</span>
+                                <div class="dmx-bar-container">
+                                    <div class="dmx-bar" id="dmx1-ch3" style="height: 0%">
+                                        <span class="dmx-value">0</span>
+                                    </div>
+                                </div>
+                                <span class="dmx-percentage" id="dmx1-ch3-pct">0%</span>
+                            </div>
+                            <div class="dmx-channel">
+                                <span class="dmx-channel-label">CH 4</span>
+                                <div class="dmx-bar-container">
+                                    <div class="dmx-bar" id="dmx1-ch4" style="height: 0%">
+                                        <span class="dmx-value">0</span>
+                                    </div>
+                                </div>
+                                <span class="dmx-percentage" id="dmx1-ch4-pct">0%</span>
+                            </div>
+                            <div class="dmx-channel">
+                                <span class="dmx-channel-label">CH 5</span>
+                                <div class="dmx-bar-container">
+                                    <div class="dmx-bar" id="dmx1-ch5" style="height: 0%">
+                                        <span class="dmx-value">0</span>
+                                    </div>
+                                </div>
+                                <span class="dmx-percentage" id="dmx1-ch5-pct">0%</span>
+                            </div>
+                            <div class="dmx-channel">
+                                <span class="dmx-channel-label">CH 6</span>
+                                <div class="dmx-bar-container">
+                                    <div class="dmx-bar" id="dmx1-ch6" style="height: 0%">
+                                        <span class="dmx-value">0</span>
+                                    </div>
+                                </div>
+                                <span class="dmx-percentage" id="dmx1-ch6-pct">0%</span>
+                            </div>
+                            <div class="dmx-channel">
+                                <span class="dmx-channel-label">CH 7</span>
+                                <div class="dmx-bar-container">
+                                    <div class="dmx-bar" id="dmx1-ch7" style="height: 0%">
+                                        <span class="dmx-value">0</span>
+                                    </div>
+                                </div>
+                                <span class="dmx-percentage" id="dmx1-ch7-pct">0%</span>
+                            </div>
+                            <div class="dmx-channel">
+                                <span class="dmx-channel-label">CH 8</span>
+                                <div class="dmx-bar-container">
+                                    <div class="dmx-bar" id="dmx1-ch8" style="height: 0%">
+                                        <span class="dmx-value">0</span>
+                                    </div>
+                                </div>
+                                <span class="dmx-percentage" id="dmx1-ch8-pct">0%</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- DMX Channel Visualization - Port 2 -->
+                    <div class="card wide">
+                        <h2>DMX Channel Levels - Port 2 (Universe <span id="dmxPort2Universe">1</span>)</h2>
+                        <div class="universe-signal">
+                            <span class="signal-label">Signal Strength:</span>
+                            <div class="signal-bar">
+                                <div class="signal-fill" id="port2SignalFill" style="width: 0%"></div>
+                            </div>
+                            <span class="signal-label" id="port2SignalText">0%</span>
+                        </div>
+                        <div class="dmx-channels">
+                            <div class="dmx-channel">
+                                <span class="dmx-channel-label">CH 1</span>
+                                <div class="dmx-bar-container">
+                                    <div class="dmx-bar" id="dmx2-ch1" style="height: 0%">
+                                        <span class="dmx-value">0</span>
+                                    </div>
+                                </div>
+                                <span class="dmx-percentage" id="dmx2-ch1-pct">0%</span>
+                            </div>
+                            <div class="dmx-channel">
+                                <span class="dmx-channel-label">CH 2</span>
+                                <div class="dmx-bar-container">
+                                    <div class="dmx-bar" id="dmx2-ch2" style="height: 0%">
+                                        <span class="dmx-value">0</span>
+                                    </div>
+                                </div>
+                                <span class="dmx-percentage" id="dmx2-ch2-pct">0%</span>
+                            </div>
+                            <div class="dmx-channel">
+                                <span class="dmx-channel-label">CH 3</span>
+                                <div class="dmx-bar-container">
+                                    <div class="dmx-bar" id="dmx2-ch3" style="height: 0%">
+                                        <span class="dmx-value">0</span>
+                                    </div>
+                                </div>
+                                <span class="dmx-percentage" id="dmx2-ch3-pct">0%</span>
+                            </div>
+                            <div class="dmx-channel">
+                                <span class="dmx-channel-label">CH 4</span>
+                                <div class="dmx-bar-container">
+                                    <div class="dmx-bar" id="dmx2-ch4" style="height: 0%">
+                                        <span class="dmx-value">0</span>
+                                    </div>
+                                </div>
+                                <span class="dmx-percentage" id="dmx2-ch4-pct">0%</span>
+                            </div>
+                            <div class="dmx-channel">
+                                <span class="dmx-channel-label">CH 5</span>
+                                <div class="dmx-bar-container">
+                                    <div class="dmx-bar" id="dmx2-ch5" style="height: 0%">
+                                        <span class="dmx-value">0</span>
+                                    </div>
+                                </div>
+                                <span class="dmx-percentage" id="dmx2-ch5-pct">0%</span>
+                            </div>
+                            <div class="dmx-channel">
+                                <span class="dmx-channel-label">CH 6</span>
+                                <div class="dmx-bar-container">
+                                    <div class="dmx-bar" id="dmx2-ch6" style="height: 0%">
+                                        <span class="dmx-value">0</span>
+                                    </div>
+                                </div>
+                                <span class="dmx-percentage" id="dmx2-ch6-pct">0%</span>
+                            </div>
+                            <div class="dmx-channel">
+                                <span class="dmx-channel-label">CH 7</span>
+                                <div class="dmx-bar-container">
+                                    <div class="dmx-bar" id="dmx2-ch7" style="height: 0%">
+                                        <span class="dmx-value">0</span>
+                                    </div>
+                                </div>
+                                <span class="dmx-percentage" id="dmx2-ch7-pct">0%</span>
+                            </div>
+                            <div class="dmx-channel">
+                                <span class="dmx-channel-label">CH 8</span>
+                                <div class="dmx-bar-container">
+                                    <div class="dmx-bar" id="dmx2-ch8" style="height: 0%">
+                                        <span class="dmx-value">0</span>
+                                    </div>
+                                </div>
+                                <span class="dmx-percentage" id="dmx2-ch8-pct">0%</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Network Settings Tab -->
+            <div class="tab-content" id="network">
+                <div class="card">
+                    <h2>Network Configuration</h2>
+                    <form id="networkForm" onsubmit="return app.saveNetworkConfig(event)">
+                        <div class="form-group">
+                            <label>Network Mode</label>
+                            <select name="netMode" id="netModeSelect">
+                                <option value="sta">Station (Client)</option>
+                                <option value="ap">Access Point</option>
+                                <option value="eth">Ethernet</option>
+                            </select>
+                        </div>
+
+                        <div class="form-section" id="wifiSettings">
+                            <h3>WiFi Settings</h3>
+                            <div class="form-group">
+                                <label>SSID</label>
+                                <input type="text" name="wifi_ssid" placeholder="Network name">
+                            </div>
+                            <div class="form-group">
+                                <label>Password</label>
+                                <input type="password" name="wifi_password" placeholder="Network password">
+                            </div>
+                        </div>
+
+                        <div class="form-section" id="ipSettings">
+                            <h3>IP Configuration</h3>
+                            <div class="form-group">
+                                <label>
+                                    <input type="checkbox" name="dhcp" checked> Use DHCP
+                                </label>
+                            </div>
+                            <div class="static-ip" style="display: none;">
+                                <div class="form-group">
+                                    <label>IP Address</label>
+                                    <input type="text" name="static_ip" placeholder="192.168.1.100">
+                                </div>
+                                <div class="form-group">
+                                    <label>Gateway</label>
+                                    <input type="text" name="gateway" placeholder="192.168.1.1">
+                                </div>
+                                <div class="form-group">
+                                    <label>Subnet Mask</label>
+                                    <input type="text" name="netmask" placeholder="255.255.255.0">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="form-actions">
+                            <button type="submit" class="btn btn-primary">Save Configuration</button>
+                            <button type="button" class="btn" onclick="app.loadNetworkConfig()">Reload</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- DMX/RDM Configuration Tab -->
+            <div class="tab-content" id="dmx">
+                <div class="grid">
+                    <!-- Port 1 Configuration -->
+                    <div class="card">
+                        <h2>Port 1 Configuration</h2>
+                        <form id="port1Form" onsubmit="return app.savePortConfig(event, 1)">
+                            <div class="form-group">
+                                <label>Universe</label>
+                                <input type="number" name="universe" min="0" max="32767" value="0">
+                            </div>
+                            <div class="form-group">
+                                <label>Mode</label>
+                                <select name="mode">
+                                    <option value="0">Disabled</option>
+                                    <option value="1" selected>DMX Output</option>
+                                    <option value="2">DMX Input</option>
+                                    <option value="3">RDM Master</option>
+                                    <option value="4">RDM Responder</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Priority (sACN)</label>
+                                <input type="number" name="priority" min="0" max="200" value="100">
+                            </div>
+                            <div class="form-actions">
+                                <button type="submit" class="btn btn-primary">Apply</button>
+                            </div>
+                        </form>
+                    </div>
+
+                    <!-- Port 2 Configuration -->
+                    <div class="card">
+                        <h2>Port 2 Configuration</h2>
+                        <form id="port2Form" onsubmit="return app.savePortConfig(event, 2)">
+                            <div class="form-group">
+                                <label>Universe</label>
+                                <input type="number" name="universe" min="0" max="32767" value="1">
+                            </div>
+                            <div class="form-group">
+                                <label>Mode</label>
+                                <select name="mode">
+                                    <option value="0">Disabled</option>
+                                    <option value="1" selected>DMX Output</option>
+                                    <option value="2">DMX Input</option>
+                                    <option value="3">RDM Master</option>
+                                    <option value="4">RDM Responder</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Priority (sACN)</label>
+                                <input type="number" name="priority" min="0" max="200" value="100">
+                            </div>
+                            <div class="form-actions">
+                                <button type="submit" class="btn btn-primary">Apply</button>
+                            </div>
+                        </form>
+                    </div>
+
+                    <!-- Merge Engine Settings -->
+                    <div class="card wide">
+                        <h2>Merge Engine Configuration</h2>
+                        <div class="grid grid-2">
+                            <div class="form-group">
+                                <label>Port 1 Merge Mode</label>
+                                <select id="port1MergeMode" onchange="app.saveMergeMode(1, this.value)">
+                                    <option value="0">HTP (Highest Takes Precedence)</option>
+                                    <option value="1">LTP (Lowest Takes Precedence)</option>
+                                    <option value="2">LAST (Latest Source)</option>
+                                    <option value="3">BACKUP (Primary + Failover)</option>
+                                    <option value="4">DISABLE (No Merge)</option>
+                                </select>
+                                <small class="help-text">How to merge multiple sources for Port 1</small>
+                            </div>
+                            <div class="form-group">
+                                <label>Port 2 Merge Mode</label>
+                                <select id="port2MergeMode" onchange="app.saveMergeMode(2, this.value)">
+                                    <option value="0">HTP (Highest Takes Precedence)</option>
+                                    <option value="1">LTP (Lowest Takes Precedence)</option>
+                                    <option value="2">LAST (Latest Source)</option>
+                                    <option value="3">BACKUP (Primary + Failover)</option>
+                                    <option value="4">DISABLE (No Merge)</option>
+                                </select>
+                                <small class="help-text">How to merge multiple sources for Port 2</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- RDM Discovery Tab -->
+            <div class="tab-content" id="rdm">
+                <div class="card">
+                    <div class="card-header">
+                        <h2>RDM Device Discovery</h2>
+                        <button class="btn btn-primary" onclick="app.startRDMDiscovery()">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/>
+                            </svg>
+                            Scan Devices
+                        </button>
+                    </div>
+                    
+                    <div id="rdmStatus" class="status-message">
+                        Click "Scan Devices" to discover RDM devices on the network
+                    </div>
+
+                    <div class="table-responsive">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Port</th>
+                                    <th>UID</th>
+                                    <th>Device Label</th>
+                                    <th>DMX Address</th>
+                                    <th>Manufacturer</th>
+                                    <th>Model</th>
+                                </tr>
+                            </thead>
+                            <tbody id="rdmDevicesTable">
+                                <tr>
+                                    <td colspan="6" class="no-data">No devices discovered</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- System Tab -->
+            <div class="tab-content" id="system">
+                <div class="grid">
+                    <!-- System Information -->
+                    <div class="card">
+                        <h2>System Information</h2>
+                        <div class="stat-row">
+                            <span class="stat-label">Firmware Version:</span>
+                            <span class="stat-value" id="sysFirmware">--</span>
+                        </div>
+                        <div class="stat-row">
+                            <span class="stat-label">Hardware:</span>
+                            <span class="stat-value" id="sysHardware">--</span>
+                        </div>
+                        <div class="stat-row">
+                            <span class="stat-label">IDF Version:</span>
+                            <span class="stat-value" id="sysIDF">--</span>
+                        </div>
+                        <div class="stat-row">
+                            <span class="stat-label">Free Heap:</span>
+                            <span class="stat-value" id="sysFreeHeap">--</span>
+                        </div>
+                        <div class="stat-row">
+                            <span class="stat-label">Uptime:</span>
+                            <span class="stat-value" id="sysUptime">--</span>
+                        </div>
+                    </div>
+
+                    <!-- System Actions -->
+                    <div class="card">
+                        <h2>System Actions</h2>
+                        <div class="action-buttons">
+                            <button class="btn btn-warning" onclick="app.rebootDevice()">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/>
+                                </svg>
+                                Reboot Device
+                            </button>
+                            <button class="btn btn-danger" onclick="app.factoryReset()">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <polyline points="3 6 5 6 21 6"/>
+                                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                                </svg>
+                                Factory Reset
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Firmware Update -->
+                    <div class="card wide">
+                        <h2>Firmware Update (OTA)</h2>
+                        <form id="otaForm" onsubmit="return app.uploadFirmware(event)">
+                            <div class="form-group">
+                                <label>Select Firmware File (.bin)</label>
+                                <input type="file" name="firmware" accept=".bin" id="firmwareFile">
+                            </div>
+                            <div id="uploadProgress" class="progress" style="display: none;">
+                                <div class="progress-bar" id="uploadProgressBar"></div>
+                                <span class="progress-text" id="uploadProgressText">0%</span>
+                            </div>
+                            <div class="form-actions">
+                                <button type="submit" class="btn btn-primary">Upload Firmware</button>
+                            </div>
+                            <div class="alert alert-warning">
+                                <strong>Warning:</strong> Do not power off the device during firmware update!
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- Toast Notifications -->
+        <div class="toast-container" id="toastContainer"></div>
+    </div>
+
+    <script src="main.js"></script>
+</body>
+</html>
