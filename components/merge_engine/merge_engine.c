@@ -20,6 +20,8 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
 #include <string.h>
+#include <inttypes.h>
+#include <inttypes.h>
 
 static const char *TAG = "merge_engine";
 
@@ -283,7 +285,7 @@ esp_err_t merge_engine_push_artnet(uint8_t port, uint16_t universe,
     source->timestamp_us = get_time_us();
     source->sequence = sequence;
     source->priority = 100;  // Default priority for Art-Net
-    snprintf(source->source_name, sizeof(source->source_name), "ArtNet_%08X", source_ip);
+    snprintf(source->source_name, sizeof(source->source_name), "ArtNet_%08" PRIX32, source_ip);
     source->source_ip = source_ip;
     source->protocol = SOURCE_PROTOCOL_ARTNET;
     source->is_valid = true;
@@ -327,7 +329,7 @@ esp_err_t merge_engine_push_sacn(uint8_t port, uint16_t universe,
         strncpy(source->source_name, source_name, sizeof(source->source_name) - 1);
         source->source_name[sizeof(source->source_name) - 1] = '\0';
     } else {
-        snprintf(source->source_name, sizeof(source->source_name), "sACN_%08X", source_ip);
+        snprintf(source->source_name, sizeof(source->source_name), "sACN_%08" PRIX32, source_ip);
     }
     source->source_ip = source_ip;
     source->protocol = SOURCE_PROTOCOL_SACN;

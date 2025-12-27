@@ -21,6 +21,7 @@
 #include "esp_dmx.h"
 #include "esp_log.h"
 #include "esp_timer.h"
+#include "driver/gpio.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/semphr.h"
@@ -676,7 +677,7 @@ esp_err_t dmx_handler_rdm_get(uint8_t port, const rdm_uid_t uid, uint16_t pid,
     }
     
     dmx_port_context_t *port_ctx = get_port_context(port);
-    if (!port_ctx || !uid || !response_data || !response_size) {
+    if (!port_ctx || !response_data || !response_size) {
         return ESP_ERR_INVALID_ARG;
     }
     
@@ -698,7 +699,7 @@ esp_err_t dmx_handler_rdm_set(uint8_t port, const rdm_uid_t uid, uint16_t pid,
     }
     
     dmx_port_context_t *port_ctx = get_port_context(port);
-    if (!port_ctx || !uid || !data) {
+    if (!port_ctx || !data) {
         return ESP_ERR_INVALID_ARG;
     }
     
@@ -729,17 +730,17 @@ static esp_err_t port_install_driver(dmx_port_context_t *port_ctx)
     dmx_config_t dmx_config = DMX_CONFIG_DEFAULT;
     
     // Install driver
-    esp_err_t ret = dmx_driver_install(port_ctx->dmx_num, &dmx_config, DMX_INTR_FLAGS_DEFAULT);
+    esp_err_t ret = dmx_driver_install(port_ctx->dmx_num, &dmx_config, NULL, 0) ? ESP_OK : ESP_FAIL;
     if (ret != ESP_OK) {
-        ESP_LOGE(TAG, "Failed to install DMX driver: %s", esp_err_to_name(ret));
+        ESP_LOGE(TAG, "Failed to install DMX driver");
         return ret;
     }
     
     // Set pins
-    ret = dmx_set_pin(port_ctx->dmx_num, port_ctx->tx_pin, port_ctx->rx_pin, port_ctx->dir_pin);
+    ret = dmx_set_pin(port_ctx->dmx_num, port_ctx->tx_pin, port_ctx->rx_pin, port_ctx->dir_pin) ? ESP_OK : ESP_FAIL;
     if (ret != ESP_OK) {
-        ESP_LOGE(TAG, "Failed to set DMX pins: %s", esp_err_to_name(ret));
-        dmx_driver_delete(port_ctx->dmx_num);
+        ESP_LOGE(TAG, "Failed to set DMX pins");
+        (void)dmx_driver_delete(port_ctx->dmx_num);
         return ret;
     }
     
@@ -753,9 +754,9 @@ static esp_err_t port_install_driver(dmx_port_context_t *port_ctx)
  */
 static esp_err_t port_uninstall_driver(dmx_port_context_t *port_ctx)
 {
-    esp_err_t ret = dmx_driver_delete(port_ctx->dmx_num);
+    esp_err_t ret = dmx_driver_delete(port_ctx->dmx_num) ? ESP_OK : ESP_FAIL;
     if (ret != ESP_OK) {
-        ESP_LOGW(TAG, "Failed to delete DMX driver: %s", esp_err_to_name(ret));
+        ESP_LOGW(TAG, "Failed to delete DMX driver");
         return ret;
     }
     
@@ -783,7 +784,7 @@ static void dmx_output_task(void *arg)
         // Send DMX frame
         dmx_wait_sent(port_ctx->dmx_num, DMX_TIMEOUT_TICK);
         dmx_write(port_ctx->dmx_num, dmx_data, DMX_CHANNEL_COUNT);
-        dmx_send(port_ctx->dmx_num, DMX_CHANNEL_COUNT);
+        dmx_send(port_ctx->dmx_num);
         
         // Update statistics
         port_ctx->stats.frames_sent++;
@@ -809,28 +810,27 @@ static void dmx_input_task(void *arg)
     
     while (port_ctx->is_active) {
         // Wait for DMX packet
-        esp_err_t ret = dmx_receive(port_ctx->dmx_num, &packet, pdMS_TO_TICKS(DMX_RX_TIMEOUT_MS));
-        
-        if (ret == ESP_OK) {
-            // Valid DMX packet received
-            if (packet.sc == DMX_SC) {
-                // Copy data to buffer
-                xSemaphoreTake(port_ctx->buffer_mutex, portMAX_DELAY);
-                memcpy(port_ctx->dmx_buffer, packet.data, DMX_CHANNEL_COUNT);
-                xSemaphoreGive(port_ctx->buffer_mutex);
-                
-                // Update statistics
-                port_ctx->stats.frames_received++;
-                port_ctx->stats.last_frame_time_ms = esp_timer_get_time() / 1000;
-                
-                // Call callback if registered
-                if (port_ctx->rx_callback) {
-                    port_ctx->rx_callback(port_ctx->port_num, packet.data, 
-                                        DMX_CHANNEL_COUNT, port_ctx->rx_callback_user_data);
-                }
+        size_t size = dmx_receive(port_ctx->dmx_num, &packet, pdMS_TO_TICKS(DMX_RX_TIMEOUT_MS));
+
+        if (size > 0 && packet.sc == DMX_SC && !packet.is_rdm) {
+            // Read received DMX data into buffer
+            xSemaphoreTake(port_ctx->buffer_mutex, portMAX_DELAY);
+            dmx_read(port_ctx->dmx_num, port_ctx->dmx_buffer, DMX_CHANNEL_COUNT);
+            xSemaphoreGive(port_ctx->buffer_mutex);
+
+            // Update statistics
+            port_ctx->stats.frames_received++;
+            port_ctx->stats.last_frame_time_ms = esp_timer_get_time() / 1000;
+
+            // Call callback if registered
+            if (port_ctx->rx_callback) {
+                port_ctx->rx_callback(port_ctx->port_num, port_ctx->dmx_buffer,
+                                      DMX_CHANNEL_COUNT, port_ctx->rx_callback_user_data);
             }
-        } else if (ret != ESP_ERR_TIMEOUT) {
-            // Error occurred
+        } else if (size == 0) {
+            // timeout - no packet, do nothing
+        } else {
+            // Error occurred or RDM packet (not handled here)
             port_ctx->stats.error_count++;
         }
     }

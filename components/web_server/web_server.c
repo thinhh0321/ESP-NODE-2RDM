@@ -331,7 +331,7 @@ esp_err_t web_server_ws_send(const char *path, const uint8_t *data,
     
     httpd_ws_frame_t ws_pkt;
     memset(&ws_pkt, 0, sizeof(httpd_ws_frame_t));
-    ws_pkt.payload = data;
+    ws_pkt.payload = (uint8_t *)data;
     ws_pkt.len = len;
     ws_pkt.type = is_binary ? HTTPD_WS_TYPE_BINARY : HTTPD_WS_TYPE_TEXT;
     
@@ -405,7 +405,7 @@ static esp_err_t root_handler(httpd_req_t *req)
     
     httpd_resp_set_type(req, "text/html");
     httpd_resp_set_hdr(req, "Cache-Control", "no-cache");
-    return httpd_resp_send(req, html_index, strlen(html_index));
+    return httpd_resp_send(req, web_index_html, strlen(web_index_html));
 }
 
 /**
@@ -417,7 +417,7 @@ static esp_err_t js_main_handler(httpd_req_t *req)
     
     httpd_resp_set_type(req, "application/javascript");
     httpd_resp_set_hdr(req, "Cache-Control", "max-age=3600");
-    return httpd_resp_send(req, js_main, strlen(js_main));
+    return httpd_resp_send(req, web_main_js, strlen(web_main_js));
 }
 
 /**

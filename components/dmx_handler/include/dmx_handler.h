@@ -5,6 +5,7 @@
 #include <stdbool.h>
 #include "esp_err.h"
 #include "config_manager.h"
+#include "esp_dmx.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -39,8 +40,7 @@ extern "C" {
 #define DMX_FRAME_SIZE (DMX_CHANNEL_COUNT + 1)  // Start code (1 byte) + 512 data channels = 513 bytes total
 #define DMX_MAX_DEVICES 32
 
-// RDM UIDs (6 bytes)
-typedef uint8_t rdm_uid_t[6];
+// RDM UID type is provided by esp-dmx (struct with manufacturer and device IDs)
 
 // Broadcast UID for RDM
 #define RDM_BROADCAST_UID {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF}
